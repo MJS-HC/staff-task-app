@@ -66,18 +66,18 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
         {...listeners}
         className={`cursor-move mb-3 p-3 rounded-t-lg ${userColor.bg} ${userColor.text} hover:shadow-md transition-shadow`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {/* Drag icon */}
           <svg
-            className="w-4 h-4 flex-shrink-0"
+            className="w-5 h-5 flex-shrink-0 opacity-80"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
             <path d="M8 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
           </svg>
 
-          <span className="bg-white bg-opacity-20 text-xs font-bold px-2 py-1 rounded">
-            #{task.priority}
+          <span className="bg-white bg-opacity-30 text-sm font-bold px-3 py-1 rounded-full min-w-fit">
+            Priority #{task.priority}
           </span>
           <h3 className="text-lg font-semibold flex-1">{task.title}</h3>
         </div>
@@ -141,10 +141,20 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
 
         {task.notes.length > 0 && (
           <div className="pt-3 border-t border-gray-200">
-            <p className="text-xs text-gray-500">Latest note:</p>
-            <p className="text-sm text-gray-700 italic">
-              "{task.notes[0]?.text.substring(0, 50)}..."
-            </p>
+            <p className="text-xs font-semibold text-gray-600 mb-2">Notes ({task.notes.length})</p>
+            <div className="space-y-2 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border border-gray-200">
+              {task.notes.map((note) => (
+                <div key={note.id} className="text-xs">
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="font-semibold text-gray-800">{note.addedByName}</span>
+                    <span className="text-gray-500 flex-shrink-0">
+                      {new Date(note.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-gray-700 mt-1">{note.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
