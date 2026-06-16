@@ -100,15 +100,17 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
     if (!editingNoteText.trim()) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'tasks', task.id, 'notes', noteId), {
-        text: editingNoteText,
-      });
+      const noteToUpdate = notes.find(n => n.id === noteId);
+      if (!noteToUpdate) return;
 
-      // Update local notes state immediately
-      const updatedNotes = notes.map(note =>
-        note.id === noteId ? { ...note, text: editingNoteText } : note
-      );
-      setNotes(updatedNotes);
+      // Delete old note and create new one
+      await deleteDoc(doc(db, 'tasks', task.id, 'notes', noteId));
+      await addDoc(collection(db, 'tasks', task.id, 'notes'), {
+        text: editingNoteText,
+        addedBy: noteToUpdate.addedBy,
+        addedByName: noteToUpdate.addedByName,
+        createdAt: noteToUpdate.createdAt,
+      });
 
       setEditingNoteId(null);
       setEditingNoteText('');
