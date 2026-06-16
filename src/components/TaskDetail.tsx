@@ -67,8 +67,9 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
     } catch (error: any) {
       console.error('Failed to add note:', error);
       alert(`Failed to add note: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleSaveEdit() {
@@ -82,18 +83,21 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save task:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleDeleteNote(noteId: string) {
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'tasks', task.id, 'notes', noteId));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete note:', error);
+      alert(`Failed to delete note: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleSaveNote(noteId: string) {
@@ -117,8 +121,9 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
     } catch (error: any) {
       console.error('Failed to save note:', error);
       alert(`Failed to save note: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const sortedNotes = [...notes].sort(
