@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import type { Task, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
@@ -47,6 +46,16 @@ export function TaskDashboard() {
     loadUsers();
     loadTasks();
   }, []);
+
+  // Keep selectedTask in sync with tasks array
+  useEffect(() => {
+    if (selectedTask) {
+      const updatedTask = tasks.find((t) => t.id === selectedTask.id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+    }
+  }, [tasks]);
 
   async function loadUsers() {
     try {
@@ -430,12 +439,11 @@ export function TaskDashboard() {
       )}
 
       {/* Task Detail Modal */}
-      {selectedTask && createPortal(
+      {selectedTask && (
         <TaskDetail
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
-        />,
-        document.body
+        />
       )}
     </div>
   );
