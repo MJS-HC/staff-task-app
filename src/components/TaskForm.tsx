@@ -50,26 +50,33 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
 
     setLoading(true);
     try {
-      // Get the highest priority to set new task priority
+      // Get the highest priority for this user
       const tasksSnapshot = await getDocs(collection(db, 'tasks'));
-      const maxPriority = Math.max(
-        0,
-        ...tasksSnapshot.docs.map((doc) => doc.data().priority || 0)
-      );
+      const userTasks = tasksSnapshot.docs
+        .filter((doc) => doc.data().responsibleId === responsibleId)
+        .map((doc) => doc.data().priority || 0);
+      const maxUserPriority = Math.max(0, ...userTasks);
 
       await addDoc(collection(db, 'tasks'), {
         title,
         description,
-        responsibleId,
+        responsibleId: responsibleId || null,
         supportId: supportId || null,
         allocatedById: user.id,
         deadline: new Date(deadline),
-        priority: maxPriority + 1,
+        priority: maxUserPriority + 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         interimDeadlines: [],
         notes: [],
       });
+
+      // Reset form
+      setTitle('');
+      setDescription('');
+      setResponsibleId('');
+      setSupportId('');
+      setDeadline('');
 
       onTaskCreated();
       onClose();
@@ -80,7 +87,7 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6" autoComplete="off">
       <h2 className="text-2xl font-bold mb-6 text-gray-900">Create New Task</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -123,16 +130,15 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Assign To *
+            Assign To (Optional)
           </label>
           <select
             value={responsibleId}
             onChange={(e) => setResponsibleId(e.target.value)}
             className="input-field"
-            required
             disabled={loading}
           >
-            <option value="">Select a person</option>
+            <option value="">Unassigned</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.username}
@@ -173,7 +179,7 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
         <button
           type="submit"
           className="btn-primary"
-          disabled={loading || !title || !deadline || !responsibleId}
+          disabled={loading || !title || !deadline}
         >
           {loading ? 'Creating...' : 'Create Task'}
         </button>

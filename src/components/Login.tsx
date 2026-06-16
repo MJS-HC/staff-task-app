@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { auth } from '../config/firebase';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -17,10 +18,15 @@ export function Login() {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // Wait for auth state to be set in Firebase
+      if (auth.currentUser) {
+        // Navigate after a small delay to ensure context is updated
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 500);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to login');
-    } finally {
       setLoading(false);
     }
   }

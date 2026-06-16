@@ -33,6 +33,7 @@ export function TaskDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'priority' | 'date'>('priority');
   const { user } = useAuth();
 
   const sensors = useSensors(
@@ -242,18 +243,30 @@ export function TaskDashboard() {
     }
   }
 
-  // Group tasks by user
+  // Group tasks by user with sorting
   const userColumns = users.map((u) => ({
     user: u,
     tasks: tasks
       .filter((t) => t.responsibleId === u.id)
-      .sort((a, b) => a.priority - b.priority),
+      .sort((a, b) => {
+        if (sortBy === 'priority') {
+          return a.priority - b.priority;
+        } else {
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        }
+      }),
   }));
 
   // Add unassigned column
   const unassignedTasks = tasks
     .filter((t) => !t.responsibleId)
-    .sort((a, b) => a.priority - b.priority);
+    .sort((a, b) => {
+      if (sortBy === 'priority') {
+        return a.priority - b.priority;
+      } else {
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      }
+    });
 
   return (
     <div className="p-6 min-h-screen bg-gray-100">
@@ -275,67 +288,54 @@ export function TaskDashboard() {
         </div>
       )}
 
+      {/* Sort Options */}
+      <div className="mb-6 flex gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={sortBy === 'priority'}
+            onChange={() => setSortBy('priority')}
+            className="rounded"
+          />
+          <span className="text-gray-700">Sort by Priority</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={sortBy === 'date'}
+            onChange={() => setSortBy('date')}
+            className="rounded"
+          />
+          <span className="text-gray-700">Sort by Due Date</span>
+        </label>
+      </div>
+
       {loading ? (
         <div className="text-center py-12">
           <p className="text-gray-600">Loading tasks...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-max">
-          {/* Unassigned column */}
-          <div className="bg-white rounded-lg p-4 sticky top-6 h-fit">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b-2 border-gray-300">
-              Unassigned ({unassignedTasks.length})
-            </h2>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={unassignedTasks.map((t) => t.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-3">
-                  {unassignedTasks.length === 0 ? (
-                    <p className="text-gray-400 text-sm">No unassigned tasks</p>
-                  ) : (
-                    unassignedTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        users={users}
-                        onReassign={canCreateTask ? handleTaskReassign : undefined}
-                      />
-                    ))
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
-          </div>
-
-          {/* User columns */}
-          {userColumns.map(({ user: u, tasks: userTasks }) => (
-            <div key={u.id} className="bg-white rounded-lg p-4 sticky top-6 h-fit">
-              <h2 className="text-lg font-bold text-gray-900 mb-2">
-                {u.username}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {/* Unassigned column - only visible to admin/manager */}
+          {(user?.role === 'admin' || user?.role === 'manager') && (
+            <div className="bg-white rounded-lg p-4 sticky top-6 h-fit">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b-2 border-gray-300">
+                Unassigned ({unassignedTasks.length})
               </h2>
-              <p className="text-xs text-gray-500 mb-4 pb-3 border-b-2 border-gray-200">
-                {u.role} • {userTasks.length} task{userTasks.length !== 1 ? 's' : ''}
-              </p>
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={userTasks.map((t) => t.id)}
+                  items={unassignedTasks.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-3">
-                    {userTasks.length === 0 ? (
-                      <p className="text-gray-400 text-sm">No tasks assigned</p>
+                    {unassignedTasks.length === 0 ? (
+                      <p className="text-gray-400 text-sm">No unassigned tasks</p>
                     ) : (
-                      userTasks.map((task) => (
+                      unassignedTasks.map((task) => (
                         <TaskCard
                           key={task.id}
                           task={task}
@@ -348,7 +348,53 @@ export function TaskDashboard() {
                 </SortableContext>
               </DndContext>
             </div>
-          ))}
+          )}
+
+          {/* User columns - show based on role */}
+          {userColumns
+            .filter(({ user: u }) => {
+              // Carers only see their own column
+              if (user?.role === 'carer') {
+                return u.id === user.id;
+              }
+              // Admins and managers see all
+              return true;
+            })
+            .map(({ user: u, tasks: userTasks }) => (
+              <div key={u.id} className="bg-white rounded-lg p-4 sticky top-6 h-fit">
+                <h2 className="text-lg font-bold text-gray-900 mb-2">
+                  {u.username}
+                </h2>
+                <p className="text-xs text-gray-500 mb-4 pb-3 border-b-2 border-gray-200">
+                  {u.role} • {userTasks.length} task{userTasks.length !== 1 ? 's' : ''}
+                </p>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={userTasks.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {userTasks.length === 0 ? (
+                        <p className="text-gray-400 text-sm">No tasks assigned</p>
+                      ) : (
+                        userTasks.map((task) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            users={users}
+                            onReassign={canCreateTask ? handleTaskReassign : undefined}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            ))}
         </div>
       )}
     </div>
