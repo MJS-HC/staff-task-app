@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
 import { TaskCard } from './TaskCard';
 import { TaskForm } from './TaskForm';
-import { TaskDetail } from './TaskDetail';
 import {
   DndContext,
   closestCenter,
@@ -438,12 +437,20 @@ export function TaskDashboard() {
         </div>
       )}
 
-      {/* Task Detail Modal */}
+      {/* Debug: Show when selectedTask is set */}
       {selectedTask && (
-        <TaskDetail
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-8 max-w-2xl w-full">
+            <h1 className="text-3xl font-bold mb-4">Task: {selectedTask.title}</h1>
+            <p className="mb-4">{selectedTask.description}</p>
+            <button
+              onClick={() => setSelectedTask(null)}
+              className="btn-primary"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
