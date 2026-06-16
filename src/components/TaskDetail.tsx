@@ -176,16 +176,16 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
   const userColor = getUserColor(task.responsibleId, users);
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-100 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+    <div className="fixed inset-0 bg-blue-100 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-100 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col border border-gray-300">
         {/* Colored Header Banner */}
-        <div className={`${userColor.bg} ${userColor.text} px-6 py-5 rounded-t-xl`}>
+        <div className={`${userColor.bg} ${userColor.text} px-6 py-5 rounded-t-xl border-b-4 border-gray-300`}>
           {isEditing ? (
             <input
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="input-field text-3xl font-bold flex-1 bg-white bg-opacity-20 text-white placeholder-white placeholder-opacity-70"
+              className="input-field text-3xl font-bold flex-1 bg-white bg-opacity-30 text-gray-900 placeholder-gray-700"
               disabled={loading}
             />
           ) : (
@@ -245,7 +245,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="bg-white rounded-lg p-6 space-y-6">
           {/* Description */}
-          <div>
+          <div className="pb-6 border-b border-gray-200">
             <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
             {isEditing ? (
               <textarea
@@ -261,7 +261,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
           </div>
 
           {/* Key Info */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 pb-6 border-b border-gray-200">
             <div>
               <h4 className="font-semibold text-gray-900 text-sm mb-1">Assigned To</h4>
               <p className="text-gray-700">{task.responsibleName || 'Unassigned'}</p>
@@ -284,7 +284,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
 
           {/* Interim Deadlines */}
           {task.interimDeadlines.length > 0 && (
-            <div>
+            <div className="pb-6 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900 mb-3">Interim Deadlines</h3>
               <div className="space-y-2">
                 {task.interimDeadlines.map((deadline) => (
