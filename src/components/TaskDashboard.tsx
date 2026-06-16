@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Task, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
 import { TaskCard } from './TaskCard';
 import { TaskForm } from './TaskForm';
+import { TaskDetail } from './TaskDetail';
 import {
   DndContext,
   closestCenter,
@@ -25,7 +27,6 @@ import {
   writeBatch,
   doc,
   getDocs,
-  updateDoc,
 } from 'firebase/firestore';
 
 export function TaskDashboard() {
@@ -34,6 +35,7 @@ export function TaskDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'priority' | 'date'>('priority');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { user } = useAuth();
 
   const sensors = useSensors(
@@ -226,18 +228,45 @@ export function TaskDashboard() {
 
   async function handleTaskReassign(taskId: string, newUserId: string) {
     try {
-      // Get all tasks for the new user
+      const taskToMove = tasks.find((t) => t.id === taskId);
+      if (!taskToMove) return;
+
+      const oldUserId = taskToMove.responsibleId;
+      const batch = writeBatch(db);
+
+      // If moving from one user to another, renumber the original user's tasks
+      if (oldUserId) {
+        const oldUserTasks = tasks
+          .filter((t) => t.responsibleId === oldUserId && t.id !== taskId)
+          .sort((a, b) => a.priority - b.priority);
+
+        // Renumber old user's remaining tasks
+        oldUserTasks.forEach((task, idx) => {
+          batch.update(doc(db, 'tasks', task.id), {
+            priority: idx + 1,
+          });
+        });
+      }
+
+      // Get all tasks for the new user and renumber
       const newUserTasks = tasks
         .filter((t) => t.responsibleId === newUserId)
         .sort((a, b) => a.priority - b.priority);
 
-      // New priority for reassigned task (add to end)
-      const newPriority = newUserTasks.length + 1;
-
-      await updateDoc(doc(db, 'tasks', taskId), {
-        responsibleId: newUserId,
-        priority: newPriority,
+      // Renumber new user's existing tasks (just in case)
+      newUserTasks.forEach((task, idx) => {
+        batch.update(doc(db, 'tasks', task.id), {
+          priority: idx + 1,
+        });
       });
+
+      // Move the task to new user with new priority (at the end)
+      batch.update(doc(db, 'tasks', taskId), {
+        responsibleId: newUserId || null,
+        priority: newUserTasks.length + 1,
+      });
+
+      await batch.commit();
     } catch (error) {
       console.error('Failed to reassign task:', error);
     }
@@ -341,6 +370,7 @@ export function TaskDashboard() {
                           task={task}
                           users={users}
                           onReassign={canCreateTask ? handleTaskReassign : undefined}
+                          onTaskClick={setSelectedTask}
                         />
                       ))
                     )}
@@ -387,6 +417,7 @@ export function TaskDashboard() {
                             task={task}
                             users={users}
                             onReassign={canCreateTask ? handleTaskReassign : undefined}
+                            onTaskClick={setSelectedTask}
                           />
                         ))
                       )}
@@ -396,6 +427,15 @@ export function TaskDashboard() {
               </div>
             ))}
         </div>
+      )}
+
+      {/* Task Detail Modal */}
+      {selectedTask && createPortal(
+        <TaskDetail
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />,
+        document.body
       )}
     </div>
   );

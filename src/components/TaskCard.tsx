@@ -1,19 +1,16 @@
-import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { Task, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TaskDetail } from './TaskDetail';
 
 interface TaskCardProps {
   task: Task;
   users?: User[];
   onReassign?: (taskId: string, userId: string) => void;
+  onTaskClick?: (task: Task) => void;
 }
 
-export function TaskCard({ task, users = [], onReassign }: TaskCardProps) {
-  const [showDetail, setShowDetail] = useState(false);
+export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCardProps) {
   const { user: currentUser } = useAuth();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -118,18 +115,13 @@ export function TaskCard({ task, users = [], onReassign }: TaskCardProps) {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setShowDetail(true);
+            onTaskClick?.(task);
           }}
           className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-2 px-3 rounded-lg transition-colors text-sm"
         >
           View Details & Add Notes
         </button>
       </div>
-
-      {showDetail && createPortal(
-        <TaskDetail task={task} onClose={() => setShowDetail(false)} />,
-        document.body
-      )}
     </>
   );
 }
