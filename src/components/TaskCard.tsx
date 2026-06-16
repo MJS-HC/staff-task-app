@@ -3,6 +3,27 @@ import { useAuth } from '../context/AuthContext';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// Color palette for users
+const userColors: { [key: string]: { bg: string; text: string } } = {
+  0: { bg: 'bg-blue-500', text: 'text-white' },
+  1: { bg: 'bg-green-500', text: 'text-white' },
+  2: { bg: 'bg-purple-500', text: 'text-white' },
+  3: { bg: 'bg-pink-500', text: 'text-white' },
+  4: { bg: 'bg-indigo-500', text: 'text-white' },
+  5: { bg: 'bg-cyan-500', text: 'text-white' },
+  6: { bg: 'bg-amber-500', text: 'text-white' },
+  7: { bg: 'bg-rose-500', text: 'text-white' },
+};
+
+function getUserColor(userId: string | undefined, users: User[]): { bg: string; text: string } {
+  if (!userId) {
+    return { bg: 'bg-gray-400', text: 'text-white' };
+  }
+  const userIndex = users.findIndex((u) => u.id === userId);
+  const colorIndex = userIndex >= 0 ? userIndex % Object.keys(userColors).length : 0;
+  return userColors[colorIndex];
+}
+
 interface TaskCardProps {
   task: Task;
   users?: User[];
@@ -29,6 +50,8 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
     (new Date(task.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 
+  const userColor = getUserColor(task.responsibleId, users);
+
   return (
     <div
       ref={setNodeRef}
@@ -41,13 +64,22 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
       {/* Drag handle - only this has drag listeners */}
       <div
         {...listeners}
-        className="cursor-move mb-2 pb-2 border-b border-gray-100"
+        className={`cursor-move mb-3 p-3 rounded-t-lg ${userColor.bg} ${userColor.text} hover:shadow-md transition-shadow`}
       >
         <div className="flex items-center gap-2">
-          <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">
+          {/* Drag icon */}
+          <svg
+            className="w-4 h-4 flex-shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path d="M8 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+          </svg>
+
+          <span className="bg-white bg-opacity-20 text-xs font-bold px-2 py-1 rounded">
             #{task.priority}
           </span>
-          <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+          <h3 className="text-lg font-semibold flex-1">{task.title}</h3>
         </div>
       </div>
 
