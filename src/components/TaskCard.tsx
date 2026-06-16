@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Task, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useSortable } from '@dnd-kit/sortable';
@@ -125,8 +126,9 @@ export function TaskCard({ task, users = [], onReassign }: TaskCardProps) {
         </button>
       </div>
 
-      {showDetail && (
-        <TaskDetail task={task} onClose={() => setShowDetail(false)} />
+      {showDetail && createPortal(
+        <TaskDetail task={task} onClose={() => setShowDetail(false)} />,
+        document.body
       )}
     </>
   );
