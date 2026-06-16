@@ -64,8 +64,9 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
         createdAt: serverTimestamp(),
       });
       setNewNote('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add note:', error);
+      alert(`Failed to add note: ${error.message || 'Unknown error'}`);
     }
     setLoading(false);
   }
@@ -111,9 +112,9 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
 
       setEditingNoteId(null);
       setEditingNoteText('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save note:', error);
-      alert('Failed to save note. Please try again.');
+      alert(`Failed to save note: ${error.message || 'Unknown error'}`);
     }
     setLoading(false);
   }
