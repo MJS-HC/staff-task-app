@@ -76,7 +76,7 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
             <path d="M8 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
           </svg>
 
-          <span className="bg-white bg-opacity-30 text-sm font-bold px-3 py-1 rounded-full min-w-fit">
+          <span className="bg-white text-gray-900 text-sm font-bold px-3 py-1.5 rounded-full min-w-fit shadow-sm">
             Priority #{task.priority}
           </span>
           <h3 className="text-lg font-semibold flex-1">{task.title}</h3>
@@ -85,7 +85,9 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
 
       {/* Non-draggable content */}
       <div className="space-y-3">
-        <p className="text-gray-600 text-sm">{task.description}</p>
+        <p className="text-gray-700 text-sm">
+          <span className="font-semibold">Description:</span> {task.description}
+        </p>
 
         <div className="flex items-start justify-between">
           <div className="flex-1 grid grid-cols-2 gap-4 text-sm">
@@ -143,8 +145,8 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
           <div className="pt-3 border-t border-gray-200">
             <p className="text-xs font-semibold text-gray-600 mb-2">Notes ({task.notes.length})</p>
             <div className="space-y-2 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border border-gray-200">
-              {task.notes.map((note) => (
-                <div key={note.id} className="text-xs">
+              {task.notes.map((note, idx) => (
+                <div key={note.id} className={`text-xs pb-2 ${idx < task.notes.length - 1 ? 'border-b border-gray-300' : ''}`}>
                   <div className="flex justify-between items-start gap-2">
                     <span className="font-semibold text-gray-800">{note.addedByName}</span>
                     <span className="text-gray-500 flex-shrink-0">

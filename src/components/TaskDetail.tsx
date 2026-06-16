@@ -11,6 +11,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 
 interface TaskDetailProps {
@@ -25,6 +26,8 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -81,6 +84,31 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
     setLoading(false);
   }
 
+  async function handleDeleteNote(noteId: string) {
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'tasks', task.id, 'notes', noteId));
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+    }
+    setLoading(false);
+  }
+
+  async function handleSaveNote(noteId: string) {
+    if (!editingNoteText.trim()) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'tasks', task.id, 'notes', noteId), {
+        text: editingNoteText,
+      });
+      setEditingNoteId(null);
+      setEditingNoteText('');
+    } catch (error) {
+      console.error('Failed to save note:', error);
+    }
+    setLoading(false);
+  }
+
   const sortedNotes = [...notes].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -133,9 +161,9 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
             )}
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl"
+              className="btn-secondary text-sm"
             >
-              ×
+              Close
             </button>
           </div>
         </div>
@@ -231,19 +259,77 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
               {sortedNotes.length === 0 ? (
                 <p className="text-gray-500 text-sm">No notes yet</p>
               ) : (
-                sortedNotes.map((note) => (
-                  <div key={note.id} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <p className="font-medium text-gray-900 text-sm">
-                        {note.addedByName || 'Unknown'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(note.createdAt).toLocaleString()}
-                      </p>
+                sortedNotes.map((note) => {
+                  const canEditNote =
+                    user?.id === note.addedBy || user?.role === 'admin' || user?.role === 'manager';
+
+                  return (
+                    <div key={note.id} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">
+                            {note.addedByName || 'Unknown'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(note.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {canEditNote && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingNoteId(note.id);
+                                setEditingNoteText(note.text);
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteNote(note.id)}
+                              disabled={loading}
+                              className="text-xs text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {editingNoteId === note.id ? (
+                        <div className="mt-2">
+                          <textarea
+                            value={editingNoteText}
+                            onChange={(e) => setEditingNoteText(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            rows={3}
+                            disabled={loading}
+                          />
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => handleSaveNote(note.id)}
+                              disabled={!editingNoteText.trim() || loading}
+                              className="btn-primary text-xs"
+                            >
+                              {loading ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingNoteId(null);
+                                setEditingNoteText('');
+                              }}
+                              className="btn-secondary text-xs"
+                              disabled={loading}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-700">{note.text}</p>
+                      )}
                     </div>
-                    <p className="text-gray-700">{note.text}</p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
