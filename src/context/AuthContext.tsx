@@ -30,12 +30,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          setUser({
-            id: firebaseUser.uid,
-            ...userDoc.data(),
-          } as User);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            setUser({
+              id: firebaseUser.uid,
+              ...userDoc.data(),
+            } as User);
+          } else {
+            // User document doesn't exist, create it with default carer role
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+              username: firebaseUser.email?.split('@')[0] || 'user',
+              email: firebaseUser.email || '',
+              role: 'carer',
+              createdAt: serverTimestamp(),
+            });
+
+            // Set user after creation
+            setUser({
+              id: firebaseUser.uid,
+              username: firebaseUser.email?.split('@')[0] || 'user',
+              email: firebaseUser.email || '',
+              role: 'carer',
+              createdAt: new Date(),
+            } as User);
+          }
+        } catch (error) {
+          console.error('Error loading/creating user:', error);
         }
         setCurrentUser(firebaseUser);
       } else {

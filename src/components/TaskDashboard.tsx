@@ -22,7 +22,6 @@ import {
   collection,
   query,
   onSnapshot,
-  orderBy,
   writeBatch,
   doc,
   getDocs,
@@ -32,8 +31,6 @@ import {
 export function TaskDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'priority' | 'date'>('priority');
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -59,8 +56,6 @@ export function TaskDashboard() {
         createdAt: doc.data().createdAt.toDate(),
       }));
       setUsers(loadedUsers);
-      // Select all users by default
-      setSelectedUsers(loadedUsers.map((u) => u.id));
     } catch (error) {
       console.error('Failed to load users:', error);
     }
@@ -69,10 +64,7 @@ export function TaskDashboard() {
   function loadTasks() {
     setLoading(true);
     try {
-      const tasksQuery = query(
-        collection(db, 'tasks'),
-        orderBy('priority', 'asc')
-      );
+      const tasksQuery = query(collection(db, 'tasks'));
 
       const unsubscribe = onSnapshot(tasksQuery, async (snapshot) => {
         const tasksData: Task[] = [];
@@ -129,6 +121,23 @@ export function TaskDashboard() {
             console.error('Failed to load allocated by user:', error);
           }
 
+          // Load notes from subcollection
+          let notesData: any[] = [];
+          try {
+            const notesSnapshot = await getDocs(
+              collection(db, 'tasks', taskDoc.id, 'notes')
+            );
+            notesData = notesSnapshot.docs.map((noteDoc) => ({
+              id: noteDoc.id,
+              text: noteDoc.data().text,
+              addedBy: noteDoc.data().addedBy,
+              addedByName: noteDoc.data().addedByName,
+              createdAt: noteDoc.data().createdAt.toDate(),
+            }));
+          } catch (error) {
+            console.error('Failed to load notes:', error);
+          }
+
           tasksData.push({
             id: taskDoc.id,
             title: taskData.title,
@@ -144,10 +153,7 @@ export function TaskDashboard() {
             createdAt: taskData.createdAt.toDate(),
             updatedAt: taskData.updatedAt.toDate(),
             interimDeadlines: taskData.interimDeadlines || [],
-            notes: (taskData.notes || []).map((note: any) => ({
-              ...note,
-              createdAt: note.createdAt.toDate(),
-            })),
+            notes: notesData,
           });
         }
 
@@ -165,20 +171,45 @@ export function TaskDashboard() {
   async function handleDragEnd(event: any) {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = tasks.findIndex((t) => t.id === active.id);
-      const newIndex = tasks.findIndex((t) => t.id === over.id);
-      const newTasks = arrayMove([...tasks], oldIndex, newIndex);
+      // Find the dragged task
+      const draggedTask = tasks.find((t) => t.id === active.id);
+      const overTask = tasks.find((t) => t.id === over.id);
 
-      newTasks.forEach((task, index) => {
-        task.priority = index + 1;
-      });
+      if (!draggedTask || !overTask) return;
 
+      // Get all tasks for the responsible user (sorted by priority)
+      const userTasks = tasks
+        .filter(
+          (t) =>
+            t.responsibleId === draggedTask.responsibleId ||
+            t.responsibleId === overTask.responsibleId
+        )
+        .sort((a, b) => a.priority - b.priority);
+
+      // Reorder within user
+      const oldIndex = userTasks.findIndex((t) => t.id === active.id);
+      const newIndex = userTasks.findIndex((t) => t.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedUserTasks = arrayMove([...userTasks], oldIndex, newIndex);
+
+      // Update priorities for this user's tasks
+      const updatedTasks = reorderedUserTasks.map((task, idx) => ({
+        ...task,
+        priority: idx + 1,
+      }));
+
+      // Update the full tasks array
+      const newTasks = tasks.map(
+        (t) => updatedTasks.find((ut) => ut.id === t.id) || t
+      );
       setTasks(newTasks);
 
-      // Save updated priorities to Firestore
+      // Save to Firestore
       try {
         const batch = writeBatch(db);
-        newTasks.forEach((task) => {
+        updatedTasks.forEach((task) => {
           batch.update(doc(db, 'tasks', task.id), {
             priority: task.priority,
           });
@@ -190,43 +221,42 @@ export function TaskDashboard() {
     }
   }
 
-  const filteredTasks = tasks.filter(
-    (task) =>
-      selectedUsers.length === 0 ||
-      selectedUsers.includes(task.responsibleId)
-  );
-
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
-    if (sortBy === 'priority') {
-      return a.priority - b.priority;
-    } else {
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-    }
-  });
-
   const canCreateTask = user?.role === 'admin' || user?.role === 'manager';
-  const canReassignTasks = user?.role === 'admin' || user?.role === 'manager';
-
-  function toggleUserFilter(userId: string) {
-    setSelectedUsers((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  }
 
   async function handleTaskReassign(taskId: string, newUserId: string) {
     try {
+      // Get all tasks for the new user
+      const newUserTasks = tasks
+        .filter((t) => t.responsibleId === newUserId)
+        .sort((a, b) => a.priority - b.priority);
+
+      // New priority for reassigned task (add to end)
+      const newPriority = newUserTasks.length + 1;
+
       await updateDoc(doc(db, 'tasks', taskId), {
         responsibleId: newUserId,
+        priority: newPriority,
       });
     } catch (error) {
       console.error('Failed to reassign task:', error);
     }
   }
 
+  // Group tasks by user
+  const userColumns = users.map((u) => ({
+    user: u,
+    tasks: tasks
+      .filter((t) => t.responsibleId === u.id)
+      .sort((a, b) => a.priority - b.priority),
+  }));
+
+  // Add unassigned column
+  const unassignedTasks = tasks
+    .filter((t) => !t.responsibleId)
+    .sort((a, b) => a.priority - b.priority);
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 min-h-screen bg-gray-100">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold text-gray-900">Task Dashboard</h1>
         {canCreateTask && (
@@ -240,85 +270,86 @@ export function TaskDashboard() {
       </div>
 
       {showForm && canCreateTask && (
-        <div className="mb-8">
+        <div className="mb-8 bg-white rounded-lg p-6">
           <TaskForm onClose={() => setShowForm(false)} onTaskCreated={loadTasks} />
         </div>
       )}
-
-      <div className="mb-6 space-y-4">
-        {/* Sort Options */}
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              checked={sortBy === 'priority'}
-              onChange={() => setSortBy('priority')}
-              className="rounded"
-            />
-            <span className="text-gray-700">Sort by Priority</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              checked={sortBy === 'date'}
-              onChange={() => setSortBy('date')}
-              className="rounded"
-            />
-            <span className="text-gray-700">Sort by Due Date</span>
-          </label>
-        </div>
-
-        {/* User Filter */}
-        {(user?.role === 'admin' || user?.role === 'manager') && (
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-gray-900 mb-3">Filter by Staff Member</h3>
-            <div className="flex flex-wrap gap-3">
-              {users.map((u) => (
-                <label key={u.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedUsers.includes(u.id)}
-                    onChange={() => toggleUserFilter(u.id)}
-                    className="rounded"
-                  />
-                  <span className="text-gray-700">{u.username}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
 
       {loading ? (
         <div className="text-center py-12">
           <p className="text-gray-600">Loading tasks...</p>
         </div>
-      ) : sortedTasks.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600">No tasks yet</p>
-        </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={sortedTasks.map((t) => t.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-4">
-              {sortedTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  users={users}
-                  onReassign={canReassignTasks ? handleTaskReassign : undefined}
-                />
-              ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-max">
+          {/* Unassigned column */}
+          <div className="bg-white rounded-lg p-4 sticky top-6 h-fit">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b-2 border-gray-300">
+              Unassigned ({unassignedTasks.length})
+            </h2>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={unassignedTasks.map((t) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {unassignedTasks.length === 0 ? (
+                    <p className="text-gray-400 text-sm">No unassigned tasks</p>
+                  ) : (
+                    unassignedTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        users={users}
+                        onReassign={canCreateTask ? handleTaskReassign : undefined}
+                      />
+                    ))
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+
+          {/* User columns */}
+          {userColumns.map(({ user: u, tasks: userTasks }) => (
+            <div key={u.id} className="bg-white rounded-lg p-4 sticky top-6 h-fit">
+              <h2 className="text-lg font-bold text-gray-900 mb-2">
+                {u.username}
+              </h2>
+              <p className="text-xs text-gray-500 mb-4 pb-3 border-b-2 border-gray-200">
+                {u.role} • {userTasks.length} task{userTasks.length !== 1 ? 's' : ''}
+              </p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={userTasks.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {userTasks.length === 0 ? (
+                      <p className="text-gray-400 text-sm">No tasks assigned</p>
+                    ) : (
+                      userTasks.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          users={users}
+                          onReassign={canCreateTask ? handleTaskReassign : undefined}
+                        />
+                      ))
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
-          </SortableContext>
-        </DndContext>
+          ))}
+        </div>
       )}
     </div>
   );
