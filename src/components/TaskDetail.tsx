@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Task, TaskNote } from '../types';
+import type { Task, TaskNote, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
 import {
@@ -12,7 +12,29 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  getDocs,
 } from 'firebase/firestore';
+
+// Color palette for users
+const userColors: { [key: string]: { bg: string; text: string } } = {
+  0: { bg: 'bg-blue-500', text: 'text-white' },
+  1: { bg: 'bg-green-500', text: 'text-white' },
+  2: { bg: 'bg-purple-500', text: 'text-white' },
+  3: { bg: 'bg-pink-500', text: 'text-white' },
+  4: { bg: 'bg-indigo-500', text: 'text-white' },
+  5: { bg: 'bg-cyan-500', text: 'text-white' },
+  6: { bg: 'bg-amber-500', text: 'text-white' },
+  7: { bg: 'bg-rose-500', text: 'text-white' },
+};
+
+function getUserColor(userId: string | undefined, users: User[]): { bg: string; text: string } {
+  if (!userId) {
+    return { bg: 'bg-gray-400', text: 'text-white' };
+  }
+  const userIndex = users.findIndex((u) => u.id === userId);
+  const colorIndex = userIndex >= 0 ? userIndex % Object.keys(userColors).length : 0;
+  return userColors[colorIndex];
+}
 
 interface TaskDetailProps {
   task: Task;
@@ -29,7 +51,28 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
   const [editDescription, setEditDescription] = useState(task.description);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
   const { user } = useAuth();
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function loadUsers() {
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const loadedUsers: User[] = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        username: doc.data().username,
+        email: doc.data().email,
+        role: doc.data().role,
+        createdAt: doc.data().createdAt.toDate(),
+      }));
+      setUsers(loadedUsers);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    }
+  }
 
   useEffect(() => {
     // Listen for real-time updates to notes
@@ -130,72 +173,77 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  const userColor = getUserColor(task.responsibleId, users);
+
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+      <div className="bg-gray-100 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        {/* Colored Header Banner */}
+        <div className={`${userColor.bg} ${userColor.text} px-6 py-5 rounded-t-xl`}>
           {isEditing ? (
             <input
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="input-field text-2xl font-bold flex-1"
+              className="input-field text-3xl font-bold flex-1 bg-white bg-opacity-20 text-white placeholder-white placeholder-opacity-70"
               disabled={loading}
             />
           ) : (
-            <h2 className="text-2xl font-bold text-gray-900">{task.title}</h2>
+            <h2 className="text-3xl font-bold">{task.title}</h2>
           )}
-          <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <button
-                  onClick={async () => {
-                    await handleSaveEdit();
-                    onTaskUpdated?.();
-                    onClose();
-                  }}
-                  className="btn-primary text-sm"
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : 'Save and Close'}
-                </button>
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditTitle(task.title);
-                    setEditDescription(task.description);
-                  }}
-                  className="btn-secondary text-sm"
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="btn-secondary text-sm"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => {
-                    onTaskUpdated?.();
-                    onClose();
-                  }}
-                  className="btn-secondary text-sm"
-                >
-                  Close
-                </button>
-              </>
-            )}
-          </div>
+        </div>
+
+        {/* Action Buttons Bar */}
+        <div className="sticky top-0 bg-gray-100 border-b border-gray-300 px-6 py-3 flex justify-end gap-2">
+          {isEditing ? (
+            <>
+              <button
+                onClick={async () => {
+                  await handleSaveEdit();
+                  onTaskUpdated?.();
+                  onClose();
+                }}
+                className="btn-primary text-sm"
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : 'Save and Close'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditTitle(task.title);
+                  setEditDescription(task.description);
+                }}
+                className="btn-secondary text-sm"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="btn-secondary text-sm"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => {
+                  onTaskUpdated?.();
+                  onClose();
+                }}
+                className="btn-secondary text-sm"
+              >
+                Close
+              </button>
+            </>
+          )}
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="bg-white rounded-lg p-6 space-y-6">
           {/* Description */}
           <div>
             <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
@@ -358,6 +406,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
                 })
               )}
             </div>
+          </div>
           </div>
         </div>
       </div>
