@@ -1,8 +1,17 @@
-import { useState } from 'react';
-import type { Task } from '../types';
+import { useState, useEffect } from 'react';
+import type { Task, TaskNote } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+  onSnapshot,
+  doc,
+  updateDoc,
+} from 'firebase/firestore';
 
 interface TaskDetailProps {
   task: Task;
@@ -12,7 +21,32 @@ interface TaskDetailProps {
 export function TaskDetail({ task, onClose }: TaskDetailProps) {
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const [notes, setNotes] = useState<TaskNote[]>(task.notes || []);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDescription, setEditDescription] = useState(task.description);
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Listen for real-time updates to notes
+    const notesQuery = query(
+      collection(db, 'tasks', task.id, 'notes'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(notesQuery, (snapshot) => {
+      const notesData: TaskNote[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        text: doc.data().text,
+        addedBy: doc.data().addedBy,
+        addedByName: doc.data().addedByName,
+        createdAt: doc.data().createdAt.toDate(),
+      }));
+      setNotes(notesData);
+    });
+
+    return () => unsubscribe();
+  }, [task.id]);
 
   async function handleAddNote() {
     if (!newNote.trim() || !user) return;
@@ -32,7 +66,22 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
     setLoading(false);
   }
 
-  const sortedNotes = [...task.notes].sort(
+  async function handleSaveEdit() {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'tasks', task.id), {
+        title: editTitle,
+        description: editDescription,
+        updatedAt: serverTimestamp(),
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save task:', error);
+    }
+    setLoading(false);
+  }
+
+  const sortedNotes = [...notes].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
@@ -41,13 +90,54 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">{task.title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-          >
-            ×
-          </button>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="input-field text-2xl font-bold flex-1"
+              disabled={loading}
+            />
+          ) : (
+            <h2 className="text-2xl font-bold text-gray-900">{task.title}</h2>
+          )}
+          <div className="flex gap-2">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleSaveEdit}
+                  className="btn-primary text-sm"
+                  disabled={loading}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditTitle(task.title);
+                    setEditDescription(task.description);
+                  }}
+                  className="btn-secondary text-sm"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="btn-secondary text-sm"
+              >
+                Edit
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-2xl"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -55,7 +145,17 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
           {/* Description */}
           <div>
             <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-            <p className="text-gray-700">{task.description}</p>
+            {isEditing ? (
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={4}
+                disabled={loading}
+              />
+            ) : (
+              <p className="text-gray-700">{task.description}</p>
+            )}
           </div>
 
           {/* Key Info */}

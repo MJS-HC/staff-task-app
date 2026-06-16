@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Task } from '../types';
+import type { Task, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
 import { TaskCard } from './TaskCard';
@@ -26,10 +26,13 @@ import {
   writeBatch,
   doc,
   getDocs,
+  updateDoc,
 } from 'firebase/firestore';
 
 export function TaskDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'priority' | 'date'>('priority');
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,8 +44,27 @@ export function TaskDashboard() {
   );
 
   useEffect(() => {
+    loadUsers();
     loadTasks();
   }, []);
+
+  async function loadUsers() {
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const loadedUsers: User[] = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        username: doc.data().username,
+        email: doc.data().email,
+        role: doc.data().role,
+        createdAt: doc.data().createdAt.toDate(),
+      }));
+      setUsers(loadedUsers);
+      // Select all users by default
+      setSelectedUsers(loadedUsers.map((u) => u.id));
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    }
+  }
 
   function loadTasks() {
     setLoading(true);
@@ -168,7 +190,13 @@ export function TaskDashboard() {
     }
   }
 
-  const sortedTasks = [...tasks].sort((a, b) => {
+  const filteredTasks = tasks.filter(
+    (task) =>
+      selectedUsers.length === 0 ||
+      selectedUsers.includes(task.responsibleId)
+  );
+
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (sortBy === 'priority') {
       return a.priority - b.priority;
     } else {
@@ -177,6 +205,25 @@ export function TaskDashboard() {
   });
 
   const canCreateTask = user?.role === 'admin' || user?.role === 'manager';
+  const canReassignTasks = user?.role === 'admin' || user?.role === 'manager';
+
+  function toggleUserFilter(userId: string) {
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  }
+
+  async function handleTaskReassign(taskId: string, newUserId: string) {
+    try {
+      await updateDoc(doc(db, 'tasks', taskId), {
+        responsibleId: newUserId,
+      });
+    } catch (error) {
+      console.error('Failed to reassign task:', error);
+    }
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -198,25 +245,48 @@ export function TaskDashboard() {
         </div>
       )}
 
-      <div className="mb-6 flex gap-4">
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            checked={sortBy === 'priority'}
-            onChange={() => setSortBy('priority')}
-            className="rounded"
-          />
-          <span className="text-gray-700">Sort by Priority</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            checked={sortBy === 'date'}
-            onChange={() => setSortBy('date')}
-            className="rounded"
-          />
-          <span className="text-gray-700">Sort by Due Date</span>
-        </label>
+      <div className="mb-6 space-y-4">
+        {/* Sort Options */}
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              checked={sortBy === 'priority'}
+              onChange={() => setSortBy('priority')}
+              className="rounded"
+            />
+            <span className="text-gray-700">Sort by Priority</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              checked={sortBy === 'date'}
+              onChange={() => setSortBy('date')}
+              className="rounded"
+            />
+            <span className="text-gray-700">Sort by Due Date</span>
+          </label>
+        </div>
+
+        {/* User Filter */}
+        {(user?.role === 'admin' || user?.role === 'manager') && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-semibold text-gray-900 mb-3">Filter by Staff Member</h3>
+            <div className="flex flex-wrap gap-3">
+              {users.map((u) => (
+                <label key={u.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedUsers.includes(u.id)}
+                    onChange={() => toggleUserFilter(u.id)}
+                    className="rounded"
+                  />
+                  <span className="text-gray-700">{u.username}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -239,7 +309,12 @@ export function TaskDashboard() {
           >
             <div className="space-y-4">
               {sortedTasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  users={users}
+                  onReassign={canReassignTasks ? handleTaskReassign : undefined}
+                />
               ))}
             </div>
           </SortableContext>

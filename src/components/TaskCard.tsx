@@ -1,18 +1,24 @@
 import { useState } from 'react';
-import type { Task } from '../types';
+import type { Task, User } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskDetail } from './TaskDetail';
 
 interface TaskCardProps {
   task: Task;
+  users?: User[];
+  onReassign?: (taskId: string, userId: string) => void;
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, users = [], onReassign }: TaskCardProps) {
   const [showDetail, setShowDetail] = useState(false);
+  const { user: currentUser } = useAuth();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
+
+  const canReassign = currentUser?.role === 'admin' || currentUser?.role === 'manager';
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -51,7 +57,27 @@ export function TaskCard({ task }: TaskCardProps) {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Assigned to:</span>
-                <p className="font-medium text-gray-900">{task.responsibleName || 'Unassigned'}</p>
+                {canReassign && users.length > 0 ? (
+                  <select
+                    value={task.responsibleId || ''}
+                    onChange={(e) => {
+                      if (onReassign) {
+                        onReassign(task.id, e.target.value);
+                      }
+                    }}
+                    className="input-field text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.username}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="font-medium text-gray-900">{task.responsibleName || 'Unassigned'}</p>
+                )}
               </div>
               {task.supportName && (
                 <div>

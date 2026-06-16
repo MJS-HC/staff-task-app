@@ -5,7 +5,7 @@ import { db, auth } from '../config/firebase';
 import {
   collection,
   getDocs,
-  addDoc,
+  setDoc,
   deleteDoc,
   doc,
   updateDoc,
@@ -51,10 +51,14 @@ export function AdminPanel() {
 
     try {
       // Create Firebase Auth user
-      await createUserWithEmailAndPassword(auth, newEmail, newPassword);
+      const authUser = await createUserWithEmailAndPassword(
+        auth,
+        newEmail,
+        newPassword
+      );
 
-      // Create user document in Firestore
-      await addDoc(collection(db, 'users'), {
+      // Create user document in Firestore with the auth user's UID as document ID
+      await setDoc(doc(db, 'users', authUser.user.uid), {
         username: newUsername,
         email: newEmail,
         role: newRole,
