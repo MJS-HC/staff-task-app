@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Task } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../config/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface TaskDetailProps {
   task: Task;
@@ -17,7 +19,12 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
 
     setLoading(true);
     try {
-      // TODO: Add note to Firestore
+      await addDoc(collection(db, 'tasks', task.id, 'notes'), {
+        text: newNote,
+        addedBy: user.id,
+        addedByName: user.username,
+        createdAt: serverTimestamp(),
+      });
       setNewNote('');
     } catch (error) {
       console.error('Failed to add note:', error);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../config/firebase';
 import { TaskCard } from './TaskCard';
 import { TaskForm } from './TaskForm';
 import {
@@ -17,6 +18,15 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import {
+  collection,
+  query,
+  onSnapshot,
+  orderBy,
+  writeBatch,
+  doc,
+  getDocs,
+} from 'firebase/firestore';
 
 export function TaskDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -34,18 +44,103 @@ export function TaskDashboard() {
     loadTasks();
   }, []);
 
-  async function loadTasks() {
+  function loadTasks() {
     setLoading(true);
     try {
-      // TODO: Load tasks from Firestore
-      setTasks([]);
+      const tasksQuery = query(
+        collection(db, 'tasks'),
+        orderBy('priority', 'asc')
+      );
+
+      const unsubscribe = onSnapshot(tasksQuery, async (snapshot) => {
+        const tasksData: Task[] = [];
+
+        for (const taskDoc of snapshot.docs) {
+          const taskData = taskDoc.data();
+
+          // Load user names for display
+          let responsibleName = 'Unassigned';
+          let supportName: string | undefined;
+          let allocatedByName = 'Unknown';
+
+          if (taskData.responsibleId) {
+            try {
+              const userSnap = await getDocs(
+                query(collection(db, 'users'))
+              );
+              const responsibleUser = userSnap.docs.find(
+                (u) => u.id === taskData.responsibleId
+              );
+              if (responsibleUser) {
+                responsibleName = responsibleUser.data().username;
+              }
+            } catch (error) {
+              console.error('Failed to load responsible user:', error);
+            }
+          }
+
+          if (taskData.supportId) {
+            try {
+              const userSnap = await getDocs(
+                query(collection(db, 'users'))
+              );
+              const supportUser = userSnap.docs.find(
+                (u) => u.id === taskData.supportId
+              );
+              if (supportUser) {
+                supportName = supportUser.data().username;
+              }
+            } catch (error) {
+              console.error('Failed to load support user:', error);
+            }
+          }
+
+          try {
+            const userSnap = await getDocs(query(collection(db, 'users')));
+            const allocatedByUser = userSnap.docs.find(
+              (u) => u.id === taskData.allocatedById
+            );
+            if (allocatedByUser) {
+              allocatedByName = allocatedByUser.data().username;
+            }
+          } catch (error) {
+            console.error('Failed to load allocated by user:', error);
+          }
+
+          tasksData.push({
+            id: taskDoc.id,
+            title: taskData.title,
+            description: taskData.description,
+            responsibleId: taskData.responsibleId,
+            responsibleName,
+            supportId: taskData.supportId,
+            supportName,
+            allocatedById: taskData.allocatedById,
+            allocatedByName,
+            deadline: taskData.deadline.toDate(),
+            priority: taskData.priority,
+            createdAt: taskData.createdAt.toDate(),
+            updatedAt: taskData.updatedAt.toDate(),
+            interimDeadlines: taskData.interimDeadlines || [],
+            notes: (taskData.notes || []).map((note: any) => ({
+              ...note,
+              createdAt: note.createdAt.toDate(),
+            })),
+          });
+        }
+
+        setTasks(tasksData);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
     } catch (error) {
       console.error('Failed to load tasks:', error);
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  function handleDragEnd(event: any) {
+  async function handleDragEnd(event: any) {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = tasks.findIndex((t) => t.id === active.id);
@@ -57,7 +152,19 @@ export function TaskDashboard() {
       });
 
       setTasks(newTasks);
-      // TODO: Save updated priorities to Firestore
+
+      // Save updated priorities to Firestore
+      try {
+        const batch = writeBatch(db);
+        newTasks.forEach((task) => {
+          batch.update(doc(db, 'tasks', task.id), {
+            priority: task.priority,
+          });
+        });
+        await batch.commit();
+      } catch (error) {
+        console.error('Failed to save priority updates:', error);
+      }
     }
   }
 

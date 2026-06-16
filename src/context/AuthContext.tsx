@@ -7,7 +7,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -56,8 +56,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   }
 
-  async function signup(email: string, password: string, _username: string) {
-    await createUserWithEmailAndPassword(auth, email, password);
+  async function signup(email: string, password: string, username: string) {
+    const authUser = await createUserWithEmailAndPassword(auth, email, password);
+    // Create user document in Firestore with 'carer' role by default
+    await setDoc(doc(db, 'users', authUser.user.uid), {
+      username,
+      email,
+      role: 'carer',
+      createdAt: serverTimestamp(),
+    });
   }
 
   async function resetPassword(email: string) {

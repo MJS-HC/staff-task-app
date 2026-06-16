@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../config/firebase';
 import type { User } from '../types';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 
 interface TaskFormProps {
   onClose: () => void;
@@ -23,8 +30,15 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
 
   async function loadUsers() {
     try {
-      // TODO: Load users from Firestore
-      setUsers([]);
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const loadedUsers: User[] = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        username: doc.data().username,
+        email: doc.data().email,
+        role: doc.data().role,
+        createdAt: doc.data().createdAt.toDate(),
+      }));
+      setUsers(loadedUsers);
     } catch (error) {
       console.error('Failed to load users:', error);
     }
@@ -36,7 +50,27 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
 
     setLoading(true);
     try {
-      // TODO: Create task in Firestore
+      // Get the highest priority to set new task priority
+      const tasksSnapshot = await getDocs(collection(db, 'tasks'));
+      const maxPriority = Math.max(
+        0,
+        ...tasksSnapshot.docs.map((doc) => doc.data().priority || 0)
+      );
+
+      await addDoc(collection(db, 'tasks'), {
+        title,
+        description,
+        responsibleId,
+        supportId: supportId || null,
+        allocatedById: user.id,
+        deadline: new Date(deadline),
+        priority: maxPriority + 1,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        interimDeadlines: [],
+        notes: [],
+      });
+
       onTaskCreated();
       onClose();
     } catch (error) {

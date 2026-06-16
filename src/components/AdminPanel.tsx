@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import type { User } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { db, auth } from '../config/firebase';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 export function AdminPanel() {
   const [users, setUsers] = useState<User[]>([]);
@@ -19,8 +30,15 @@ export function AdminPanel() {
   async function loadUsers() {
     setLoading(true);
     try {
-      // TODO: Load users from Firestore
-      setUsers([]);
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const loadedUsers: User[] = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        username: doc.data().username,
+        email: doc.data().email,
+        role: doc.data().role,
+        createdAt: doc.data().createdAt.toDate(),
+      }));
+      setUsers(loadedUsers);
     } catch (error) {
       console.error('Failed to load users:', error);
     }
@@ -32,31 +50,58 @@ export function AdminPanel() {
     if (!newUsername || !newEmail || !newPassword) return;
 
     try {
-      // TODO: Create new user in Firestore
+      // Create Firebase Auth user
+      await createUserWithEmailAndPassword(auth, newEmail, newPassword);
+
+      // Create user document in Firestore
+      await addDoc(collection(db, 'users'), {
+        username: newUsername,
+        email: newEmail,
+        role: newRole,
+        createdAt: serverTimestamp(),
+      });
+
       setNewUsername('');
       setNewEmail('');
       setNewPassword('');
       setShowAddUser(false);
       loadUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add user:', error);
+      alert(error.message || 'Failed to create user');
     }
   }
 
-  async function handleDeleteUser(_userId: string) {
+  async function handleDeleteUser(userId: string) {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      // TODO: Delete user from Firestore
+      // Find the user by ID and delete from Firestore
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const userDoc = usersSnapshot.docs.find((d) => d.id === userId);
+
+      if (userDoc) {
+        await deleteDoc(doc(db, 'users', userDoc.id));
+      }
+
       loadUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
     }
   }
 
-  async function handleChangeRole(_userId: string, _newRole: string) {
+  async function handleChangeRole(userId: string, newRole: string) {
     try {
-      // TODO: Update user role in Firestore
+      // Find the user by ID and update their role
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const userDoc = usersSnapshot.docs.find((d) => d.id === userId);
+
+      if (userDoc) {
+        await updateDoc(doc(db, 'users', userDoc.id), {
+          role: newRole,
+        });
+      }
+
       loadUsers();
     } catch (error) {
       console.error('Failed to update role:', error);
