@@ -41,7 +41,6 @@ export function TaskCard({ task, users = [], onReassign }: TaskCardProps) {
         className={`task-card cursor-move ${isDragging ? 'opacity-50' : ''} ${
           isOverdue ? 'border-l-red-500' : ''
         }`}
-        onClick={() => setShowDetail(true)}
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -114,6 +113,16 @@ export function TaskCard({ task, users = [], onReassign }: TaskCardProps) {
             </p>
           </div>
         )}
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDetail(true);
+          }}
+          className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-2 px-3 rounded-lg transition-colors text-sm"
+        >
+          View Details & Add Notes
+        </button>
       </div>
 
       {showDetail && (
