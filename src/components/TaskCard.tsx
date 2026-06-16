@@ -114,10 +114,21 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
 
         <button
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
+            console.log('Button clicked, calling onTaskClick');
             onTaskClick?.(task);
           }}
-          className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-2 px-3 rounded-lg transition-colors text-sm"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          style={{ pointerEvents: 'auto' }}
+          className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-2 px-3 rounded-lg transition-colors text-sm cursor-pointer relative z-10"
         >
           View Details & Add Notes
         </button>
