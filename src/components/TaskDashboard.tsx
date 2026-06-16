@@ -443,6 +443,7 @@ export function TaskDashboard() {
         <TaskDetail
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
+          onTaskUpdated={loadTasks}
         />
       )}
     </div>

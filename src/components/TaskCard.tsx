@@ -66,7 +66,7 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
         {...listeners}
         className={`cursor-move mb-3 p-3 rounded-t-lg ${userColor.bg} ${userColor.text} hover:shadow-md transition-shadow`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Drag icon */}
           <svg
             className="w-5 h-5 flex-shrink-0 opacity-80"
@@ -76,10 +76,7 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
             <path d="M8 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 3a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
           </svg>
 
-          <span className="bg-white text-gray-900 text-sm font-bold px-3 py-1.5 rounded-full min-w-fit shadow-sm">
-            Priority #{task.priority}
-          </span>
-          <h3 className="text-lg font-semibold flex-1">{task.title}</h3>
+          <h3 className="text-lg font-semibold flex-1">#{task.priority} {task.title}</h3>
         </div>
       </div>
 

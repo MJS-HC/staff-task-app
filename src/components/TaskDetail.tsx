@@ -17,9 +17,10 @@ import {
 interface TaskDetailProps {
   task: Task;
   onClose: () => void;
+  onTaskUpdated?: () => void;
 }
 
-export function TaskDetail({ task, onClose }: TaskDetailProps) {
+export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState<TaskNote[]>(task.notes || []);
@@ -101,10 +102,18 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
       await updateDoc(doc(db, 'tasks', task.id, 'notes', noteId), {
         text: editingNoteText,
       });
+
+      // Update local notes state immediately
+      const updatedNotes = notes.map(note =>
+        note.id === noteId ? { ...note, text: editingNoteText } : note
+      );
+      setNotes(updatedNotes);
+
       setEditingNoteId(null);
       setEditingNoteText('');
     } catch (error) {
       console.error('Failed to save note:', error);
+      alert('Failed to save note. Please try again.');
     }
     setLoading(false);
   }
@@ -133,11 +142,15 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
             {isEditing ? (
               <>
                 <button
-                  onClick={handleSaveEdit}
+                  onClick={async () => {
+                    await handleSaveEdit();
+                    onTaskUpdated?.();
+                    onClose();
+                  }}
                   className="btn-primary text-sm"
                   disabled={loading}
                 >
-                  Save
+                  {loading ? 'Saving...' : 'Save and Close'}
                 </button>
                 <button
                   onClick={() => {
@@ -152,19 +165,24 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="btn-secondary text-sm"
-              >
-                Edit
-              </button>
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="btn-secondary text-sm"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    onTaskUpdated?.();
+                    onClose();
+                  }}
+                  className="btn-secondary text-sm"
+                >
+                  Close
+                </button>
+              </>
             )}
-            <button
-              onClick={onClose}
-              className="btn-secondary text-sm"
-            >
-              Close
-            </button>
           </div>
         </div>
 
