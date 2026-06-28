@@ -427,49 +427,51 @@ export function AdminPanel() {
                             {u.isAdmin ? 'Yes' : 'No'}
                           </button>
                         </td>
-                        <td className="px-6 py-3 text-right space-x-2">
-                          {editingUserId === u.id ? (
-                            <>
-                              <button
-                                onClick={() => {
-                                  handleUpdateUsername(u.id, editUsername);
-                                  handleUpdateEmail(u.id, editEmail);
-                                }}
-                                className="text-green-600 hover:text-green-700 text-sm font-medium transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={cancelEditing}
-                                className="text-gray-600 hover:text-gray-700 text-sm font-medium transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => startEditingUser(u)}
-                                className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleResetPassword(u.email)}
-                                className="text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
-                              >
-                                Reset Password
-                              </button>
-                              {u.id !== currentUser?.id && (
+                        <td className="px-6 py-3">
+                          <div className="flex flex-wrap gap-3 justify-end">
+                            {editingUserId === u.id ? (
+                              <>
                                 <button
-                                  onClick={() => handleDeleteUser(u.id)}
-                                  className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
+                                  onClick={() => {
+                                    handleUpdateUsername(u.id, editUsername);
+                                    handleUpdateEmail(u.id, editEmail);
+                                  }}
+                                  className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm font-medium transition-colors"
                                 >
-                                  Delete
+                                  Save
                                 </button>
-                              )}
-                            </>
-                          )}
+                                <button
+                                  onClick={cancelEditing}
+                                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => startEditingUser(u)}
+                                  className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm font-medium transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleResetPassword(u.email)}
+                                  className="px-3 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 text-sm font-medium transition-colors"
+                                >
+                                  Reset Pwd
+                                </button>
+                                {u.id !== currentUser?.id && (
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm font-medium transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     </React.Fragment>
