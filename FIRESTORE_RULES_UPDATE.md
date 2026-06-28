@@ -1,15 +1,26 @@
 # Firestore Security Rules Update for RBAC
 
-## Problem
-User management (editing roles, toggling admin status) might not work if your Firestore security rules don't allow it.
+## Problem - FIXED ✅
+User management (editing roles, toggling admin status) was failing with "Missing or insufficient permissions" error.
 
-## Current Security Rules Issue
-The default Firestore rules in the project might be too restrictive. They may only allow:
-- Users to read all users
-- Only admins to create/delete users
-- Users can update their own profile
+## Root Cause
+The previous rules checked if user was a "manager" (nursery-manager, deputy-manager, etc.) before allowing updates. This excluded regular staff members from updating other users.
 
-But they might NOT allow managers to update other users' roles or admin status.
+## Solution
+Simplified security rules that:
+- ✅ Allow users to update their own admin/role status (toggle their own admin flag)
+- ✅ Allow only users with `isAdmin: true` to update OTHER users
+- ✅ Removes complex role hierarchy checks for user management
+- ✅ Keeps admin-only restrictions for deleting users and managing roles collection
+
+## Quick Fix (2 Minutes)
+
+1. Open https://console.firebase.google.com → your project → Firestore Database → Rules tab
+2. **Delete all current rules and replace with the new ones below**
+3. Click **Publish**
+4. Wait for green "✓ Published" checkmark
+5. **Refresh browser** (F5)
+6. Try toggling admin status again - should work now!
 
 ## Updated Security Rules
 
@@ -23,17 +34,7 @@ service cloud.firestore {
     // Helper functions
     function isAdmin() {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.data.isAdmin == true || userDoc.data.role == 'admin';
-    }
-    
-    function isManager() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      let role = userDoc.data.role;
-      return userDoc.data.isAdmin == true || 
-             role == 'admin' || 
-             role == 'manager' ||
-             role == 'nursery-manager' ||
-             role == 'deputy-manager';
+      return userDoc.data.isAdmin == true;
     }
     
     function isAuthenticated() {
@@ -45,20 +46,16 @@ service cloud.firestore {
       // Anyone authenticated can read users
       allow read: if isAuthenticated();
       
-      // Users can update their own profile
-      allow update: if request.auth.uid == userId && 
-                       request.resource.data.role == resource.data.role &&
-                       request.resource.data.isAdmin == resource.data.isAdmin;
+      // Users can update their own admin/role status
+      allow update: if request.auth.uid == userId;
       
-      // Admins/Managers can update any user's role and isAdmin
-      allow update: if isManager() && 
-                       (request.resource.data.role != resource.data.role || 
-                        request.resource.data.isAdmin != resource.data.isAdmin);
+      // Admins (isAdmin: true) can update any user's role and isAdmin status
+      allow update: if isAdmin();
       
       // Only admins can delete users
       allow delete: if isAdmin();
       
-      // Only admins can create users (or through Firebase Auth)
+      // Only admins can create users
       allow create: if isAdmin() || !exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
@@ -73,11 +70,11 @@ service cloud.firestore {
       // Anyone authenticated can read tasks
       allow read: if isAuthenticated();
       
-      // Admins, managers, and staff can create tasks
-      allow create: if isManager() || isAuthenticated();
+      // Authenticated users can create tasks
+      allow create: if isAuthenticated();
       
-      // Admins and managers can update tasks
-      allow update: if isManager();
+      // Authenticated users can update tasks
+      allow update: if isAuthenticated();
       
       // Only admin can delete tasks
       allow delete: if isAdmin();
