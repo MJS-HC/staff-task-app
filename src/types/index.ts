@@ -1,7 +1,7 @@
 export type UserRole = 'nursery-manager' | 'deputy-manager' | 'senior-staff' | 'office-manager' | 'eye' | 'admin' | 'manager' | 'carer';
 
 export type PermissionAction = 'view' | 'edit' | 'prioritise' | 'move' | 'add';
-export type PermissionLevel = 'self' | 'below' | 'own-and-below' | 'all';
+export type PermissionLevel = 'none' | 'self' | 'below' | 'own-and-below' | 'all';
 
 export interface Permission {
   action: PermissionAction;

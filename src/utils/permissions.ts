@@ -12,12 +12,12 @@ const ROLE_GRADES: Record<UserRole, number> = {
 };
 
 const DEFAULT_PERMISSIONS: Record<UserRole, Record<PermissionAction, PermissionLevel>> = {
-  'eye': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
-  'office-manager': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
-  'senior-staff': { view: 'own-and-below', add: 'self', edit: 'own-and-below', prioritise: 'own-and-below', move: 'self' },
+  'eye': { view: 'self', add: 'none', edit: 'self', prioritise: 'none', move: 'none' },
+  'office-manager': { view: 'self', add: 'none', edit: 'self', prioritise: 'none', move: 'none' },
+  'senior-staff': { view: 'own-and-below', add: 'self', edit: 'own-and-below', prioritise: 'own-and-below', move: 'none' },
   'deputy-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'nursery-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
-  'carer': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
+  'carer': { view: 'self', add: 'none', edit: 'self', prioritise: 'none', move: 'none' },
   'manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'admin': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
 };
@@ -42,6 +42,11 @@ export function canPerformAction(
   }
 
   const permissionLevel = userPermissions?.[action] ?? getDefaultPermissionLevel(currentUser.role, action);
+
+  // None: cannot do anything
+  if (permissionLevel === 'none') {
+    return false;
+  }
 
   // Self: only on own tasks
   if (permissionLevel === 'self') {

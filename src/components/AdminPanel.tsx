@@ -24,17 +24,33 @@ const ROLES: { value: UserRole; label: string; grade: number }[] = [
 ];
 
 const PERMISSION_ACTIONS: PermissionAction[] = ['view', 'add', 'edit', 'prioritise', 'move'];
-const PERMISSION_LEVELS: PermissionLevel[] = ['self', 'below', 'own-and-below', 'all'];
+const PERMISSION_LEVELS: PermissionLevel[] = ['none', 'self', 'below', 'own-and-below', 'all'];
+
+const ACTION_LABELS: Record<PermissionAction, string> = {
+  'view': 'View Tasks',
+  'add': 'Add a Task',
+  'edit': 'Edit a Task and Add Notes',
+  'prioritise': 'Prioritise Tasks',
+  'move': 'Move Tasks Between Staff',
+};
+
+const LEVEL_LABELS: Record<PermissionLevel, string> = {
+  'none': 'No-one',
+  'self': 'Own only',
+  'below': 'More junior grades only',
+  'own-and-below': 'Own and more junior grades',
+  'all': 'Everyone',
+};
 
 const DEFAULT_PERMISSIONS: Record<UserRole, Record<PermissionAction, PermissionLevel>> = {
-  'eye': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
-  'office-manager': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
-  'senior-staff': { view: 'own-and-below', add: 'self', edit: 'own-and-below', prioritise: 'own-and-below', move: 'self' },
+  'eye': { view: 'self', add: 'none', edit: 'self', prioritise: 'none', move: 'none' },
+  'office-manager': { view: 'self', add: 'none', edit: 'self', prioritise: 'none', move: 'none' },
+  'senior-staff': { view: 'own-and-below', add: 'self', edit: 'own-and-below', prioritise: 'own-and-below', move: 'none' },
   'deputy-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'nursery-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'admin': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
-  'carer': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
+  'carer': { view: 'self', add: 'none', edit: 'self', prioritise: 'none', move: 'none' },
 };
 
 export function AdminPanel() {
@@ -671,7 +687,7 @@ function RolePermissionMatrix({ role, roleLabel, permissions, isUnsaved, onPermi
               <th className="text-left py-2 px-2 font-semibold text-gray-700">Action</th>
               {PERMISSION_LEVELS.map((level) => (
                 <th key={level} className="text-center py-2 px-2 font-semibold text-gray-700">
-                  {level === 'self' ? 'Self' : level === 'below' ? 'All Below' : level === 'own-and-below' ? 'Own & Below' : 'All'}
+                  {LEVEL_LABELS[level]}
                 </th>
               ))}
             </tr>
@@ -679,7 +695,7 @@ function RolePermissionMatrix({ role, roleLabel, permissions, isUnsaved, onPermi
           <tbody>
             {PERMISSION_ACTIONS.map((action) => (
               <tr key={action} className="border-b border-gray-100">
-                <td className="py-2 px-2 font-medium text-gray-700 capitalize">{action}</td>
+                <td className="py-2 px-2 font-medium text-gray-700">{ACTION_LABELS[action]}</td>
                 {PERMISSION_LEVELS.map((level) => (
                   <td key={`${action}-${level}`} className="text-center py-2 px-2">
                     <input
@@ -688,7 +704,7 @@ function RolePermissionMatrix({ role, roleLabel, permissions, isUnsaved, onPermi
                       value={level}
                       checked={permissions[action] === level}
                       onChange={() => onPermissionChange(action, level)}
-                      className="h-4 w-4 text-blue-600"
+                      className="h-4 w-4 text-blue-600 cursor-pointer"
                     />
                   </td>
                 ))}
