@@ -52,6 +52,8 @@ export function AdminPanel() {
   const [editEmail, setEditEmail] = useState('');
   const [sortColumn, setSortColumn] = useState<'username' | 'email' | 'role' | 'admin'>('username');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Record<PermissionAction, PermissionLevel>>>(DEFAULT_PERMISSIONS);
+  const [unsavedRoles, setUnsavedRoles] = useState<Set<UserRole>>(new Set());
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
@@ -613,7 +615,22 @@ export function AdminPanel() {
                 key={roleInfo.value}
                 role={roleInfo.value}
                 roleLabel={roleInfo.label}
-                onSave={handleSavePermissions}
+                permissions={rolePermissions[roleInfo.value]}
+                isUnsaved={unsavedRoles.has(roleInfo.value)}
+                onPermissionChange={(action, level) => {
+                  setRolePermissions({
+                    ...rolePermissions,
+                    [roleInfo.value]: {
+                      ...rolePermissions[roleInfo.value],
+                      [action]: level,
+                    },
+                  });
+                  setUnsavedRoles(new Set([...unsavedRoles, roleInfo.value]));
+                }}
+                onSave={() => {
+                  handleSavePermissions(roleInfo.value, rolePermissions[roleInfo.value]);
+                  setUnsavedRoles(new Set([...unsavedRoles].filter(r => r !== roleInfo.value)));
+                }}
               />
             ))}
           </div>
@@ -626,32 +643,20 @@ export function AdminPanel() {
 interface RolePermissionMatrixProps {
   role: UserRole;
   roleLabel: string;
-  onSave: (role: UserRole, permissions: Record<PermissionAction, PermissionLevel>) => void;
+  permissions: Record<PermissionAction, PermissionLevel>;
+  isUnsaved: boolean;
+  onPermissionChange: (action: PermissionAction, level: PermissionLevel) => void;
+  onSave: () => void;
 }
 
-function RolePermissionMatrix({ role, roleLabel, onSave }: RolePermissionMatrixProps) {
-  const [permissions, setPermissions] = useState<Record<PermissionAction, PermissionLevel>>(
-    DEFAULT_PERMISSIONS[role]
-  );
-  const [isSaved, setIsSaved] = useState(true);
-
-  const handlePermissionChange = (action: PermissionAction, level: PermissionLevel) => {
-    setPermissions({ ...permissions, [action]: level });
-    setIsSaved(false);
-  };
-
-  const handleSave = () => {
-    onSave(role, permissions);
-    setIsSaved(true);
-  };
-
+function RolePermissionMatrix({ role, roleLabel, permissions, isUnsaved, onPermissionChange, onSave }: RolePermissionMatrixProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold text-gray-900">{roleLabel}</h3>
-        {!isSaved && (
+        {isUnsaved && (
           <button
-            onClick={handleSave}
+            onClick={onSave}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
           >
             Save Changes
@@ -679,10 +684,10 @@ function RolePermissionMatrix({ role, roleLabel, onSave }: RolePermissionMatrixP
                   <td key={`${action}-${level}`} className="text-center py-2 px-2">
                     <input
                       type="radio"
-                      name={action}
+                      name={`${role}-${action}`}
                       value={level}
                       checked={permissions[action] === level}
-                      onChange={() => handlePermissionChange(action, level)}
+                      onChange={() => onPermissionChange(action, level)}
                       className="h-4 w-4 text-blue-600"
                     />
                   </td>
