@@ -418,6 +418,14 @@ export function AdminPanel() {
       'carer': 1,
     };
 
+    function getRoleLevel(role: UserRole): number {
+      // Try to find in dynamic roles first
+      const dynamicRole = dynamicRoles.find(r => r.id === role);
+      if (dynamicRole) return dynamicRole.grade;
+      // Fall back to hardcoded grades
+      return roleGrades[role] || 0;
+    }
+
     const sorted = [...users].sort((a, b) => {
       let aValue: any;
       let bValue: any;
@@ -429,8 +437,8 @@ export function AdminPanel() {
         aValue = a.email.toLowerCase();
         bValue = b.email.toLowerCase();
       } else if (sortColumn === 'role') {
-        aValue = roleGrades[a.role] || 0;
-        bValue = roleGrades[b.role] || 0;
+        aValue = getRoleLevel(a.role);
+        bValue = getRoleLevel(b.role);
       } else if (sortColumn === 'admin') {
         aValue = a.isAdmin ? 1 : 0;
         bValue = b.isAdmin ? 1 : 0;
