@@ -37,7 +37,7 @@ function Navigation() {
               Tasks
             </Link>
 
-            {user.isAdmin && (
+            {(user.isAdmin || user.role === 'admin' || user.role === 'manager') && (
               <Link
                 to="/admin"
                 className="text-gray-700 hover:text-gray-900 font-medium"

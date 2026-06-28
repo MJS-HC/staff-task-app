@@ -32,6 +32,9 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Record<PermissionAction, PermissionL
   'senior-staff': { view: 'own-and-below', add: 'self', edit: 'own-and-below', prioritise: 'own-and-below', move: 'self' },
   'deputy-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'nursery-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
+  'admin': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
+  'manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
+  'carer': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
 };
 
 export function AdminPanel() {
@@ -150,7 +153,7 @@ export function AdminPanel() {
     }
   }
 
-  if (!currentUser?.isAdmin) {
+  if (!currentUser?.isAdmin && currentUser?.role !== 'admin' && currentUser?.role !== 'manager') {
     return (
       <div className="p-6">
         <p className="text-red-600">You don't have permission to access this page</p>

@@ -6,6 +6,9 @@ const ROLE_GRADES: Record<UserRole, number> = {
   'senior-staff': 3,
   'deputy-manager': 4,
   'nursery-manager': 5,
+  'carer': 1,
+  'manager': 4,
+  'admin': 5,
 };
 
 const DEFAULT_PERMISSIONS: Record<UserRole, Record<PermissionAction, PermissionLevel>> = {
@@ -14,6 +17,9 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Record<PermissionAction, PermissionL
   'senior-staff': { view: 'own-and-below', add: 'self', edit: 'own-and-below', prioritise: 'own-and-below', move: 'self' },
   'deputy-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
   'nursery-manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
+  'carer': { view: 'self', add: 'self', edit: 'self', prioritise: 'self', move: 'self' },
+  'manager': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
+  'admin': { view: 'all', add: 'all', edit: 'all', prioritise: 'all', move: 'all' },
 };
 
 export function getUserGrade(role: UserRole): number {
