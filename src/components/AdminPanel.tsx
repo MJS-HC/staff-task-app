@@ -66,8 +66,8 @@ export function AdminPanel() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUsername, setEditUsername] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [sortColumn, setSortColumn] = useState<'username' | 'email' | 'role' | 'admin'>('username');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortColumn, setSortColumn] = useState<'username' | 'email' | 'role' | 'admin'>('role');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Record<PermissionAction, PermissionLevel>>>(DEFAULT_PERMISSIONS);
   const [unsavedRoles, setUnsavedRoles] = useState<Set<UserRole>>(new Set());
   const { user: currentUser } = useAuth();
@@ -279,6 +279,17 @@ export function AdminPanel() {
   }
 
   function getSortedUsers() {
+    const roleGrades: Record<UserRole, number> = {
+      'eye': 1,
+      'office-manager': 2,
+      'senior-staff': 3,
+      'deputy-manager': 4,
+      'nursery-manager': 5,
+      'admin': 5,
+      'manager': 4,
+      'carer': 1,
+    };
+
     const sorted = [...users].sort((a, b) => {
       let aValue: any;
       let bValue: any;
@@ -290,16 +301,6 @@ export function AdminPanel() {
         aValue = a.email.toLowerCase();
         bValue = b.email.toLowerCase();
       } else if (sortColumn === 'role') {
-        const roleGrades: Record<UserRole, number> = {
-          'eye': 1,
-          'office-manager': 2,
-          'senior-staff': 3,
-          'deputy-manager': 4,
-          'nursery-manager': 5,
-          'admin': 5,
-          'manager': 4,
-          'carer': 1,
-        };
         aValue = roleGrades[a.role] || 0;
         bValue = roleGrades[b.role] || 0;
       } else if (sortColumn === 'admin') {
@@ -307,11 +308,22 @@ export function AdminPanel() {
         bValue = b.isAdmin ? 1 : 0;
       }
 
+      // Primary sort
+      let primaryResult: number;
       if (sortDirection === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        primaryResult = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+        primaryResult = aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
+
+      // Secondary sort by username if primary sort values are equal
+      if (primaryResult === 0) {
+        const aUsername = a.username.toLowerCase();
+        const bUsername = b.username.toLowerCase();
+        return aUsername < bUsername ? -1 : aUsername > bUsername ? 1 : 0;
+      }
+
+      return primaryResult;
     });
 
     return sorted;
