@@ -37,8 +37,8 @@ const ACTION_LABELS: Record<PermissionAction, string> = {
 const LEVEL_LABELS: Record<PermissionLevel, string> = {
   'none': 'No-one',
   'self': 'Own only',
-  'below': 'More junior grades only',
-  'own-and-below': 'Own and more junior grades',
+  'below': 'Self and more junior grades',
+  'own-and-below': 'Own grade and more junior',
   'all': 'Everyone',
 };
 
