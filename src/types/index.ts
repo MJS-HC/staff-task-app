@@ -1,10 +1,28 @@
-export type UserRole = 'admin' | 'manager' | 'carer';
+export type UserRole = 'nursery-manager' | 'deputy-manager' | 'senior-staff' | 'office-manager' | 'eye';
+
+export type PermissionAction = 'view' | 'edit' | 'prioritise' | 'move' | 'add';
+export type PermissionLevel = 'self' | 'below' | 'own-and-below' | 'all';
+
+export interface Permission {
+  action: PermissionAction;
+  level: PermissionLevel;
+}
+
+export interface RoleDefinition {
+  id: string;
+  name: string;
+  grade: number;
+  permissions: Record<PermissionAction, PermissionLevel>;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface User {
   id: string;
   username: string;
   email: string;
   role: UserRole;
+  isAdmin: boolean;
   createdAt: Date;
   lastLogin?: Date;
 }

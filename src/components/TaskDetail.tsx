@@ -66,6 +66,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
         username: doc.data().username,
         email: doc.data().email,
         role: doc.data().role,
+        isAdmin: doc.data().isAdmin || false,
         createdAt: doc.data().createdAt.toDate(),
       }));
       setUsers(loadedUsers);
@@ -307,7 +308,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
             <h3 className="font-semibold text-gray-900 mb-3">Notes</h3>
 
             {/* Add Note */}
-            {(user?.role === 'admin' || user?.role === 'manager' ||
+            {(user?.isAdmin || ['nursery-manager', 'deputy-manager'].includes(user?.role || '') ||
               user?.id === task.responsibleId) && (
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <textarea
@@ -335,7 +336,7 @@ export function TaskDetail({ task, onClose, onTaskUpdated }: TaskDetailProps) {
               ) : (
                 sortedNotes.map((note) => {
                   const canEditNote =
-                    user?.id === note.addedBy || user?.role === 'admin' || user?.role === 'manager';
+                    user?.id === note.addedBy || user?.isAdmin || ['nursery-manager', 'deputy-manager'].includes(user?.role || '');
 
                   return (
                     <div key={note.id} className="bg-gray-50 rounded-lg p-3">

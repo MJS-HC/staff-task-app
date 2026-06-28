@@ -65,6 +65,7 @@ export function TaskDashboard() {
         username: doc.data().username,
         email: doc.data().email,
         role: doc.data().role,
+        isAdmin: doc.data().isAdmin || false,
         createdAt: doc.data().createdAt.toDate(),
       }));
       setUsers(loadedUsers);
@@ -233,7 +234,7 @@ export function TaskDashboard() {
     }
   }
 
-  const canCreateTask = user?.role === 'admin' || user?.role === 'manager';
+  const canCreateTask = user?.isAdmin || ['nursery-manager', 'deputy-manager'].includes(user?.role || '');
 
   async function handleTaskReassign(taskId: string, newUserId: string) {
     try {
@@ -355,7 +356,7 @@ export function TaskDashboard() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {/* Unassigned column - only visible to admin/manager */}
-          {(user?.role === 'admin' || user?.role === 'manager') && (
+          {canCreateTask && (
             <div className="bg-white rounded-lg p-4 sticky top-6 h-fit">
               <h2 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b-2 border-gray-300">
                 Unassigned ({unassignedTasks.length})
@@ -392,11 +393,11 @@ export function TaskDashboard() {
           {/* User columns - show based on role */}
           {userColumns
             .filter(({ user: u }) => {
-              // Carers only see their own column
-              if (user?.role === 'carer') {
+              // EYE/Office managers only see their own column
+              if (user?.role === 'eye' || user?.role === 'office-manager') {
                 return u.id === user.id;
               }
-              // Admins and managers see all
+              // Others see all
               return true;
             })
             .map(({ user: u, tasks: userTasks }) => (

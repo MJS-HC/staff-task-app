@@ -37,6 +37,7 @@ export function TaskForm({ onClose, onTaskCreated }: TaskFormProps) {
         username: doc.data().username,
         email: doc.data().email,
         role: doc.data().role,
+        isAdmin: doc.data().isAdmin || false,
         createdAt: doc.data().createdAt.toDate(),
       }));
       setUsers(loadedUsers);

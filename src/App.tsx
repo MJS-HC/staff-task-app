@@ -37,7 +37,7 @@ function Navigation() {
               Tasks
             </Link>
 
-            {user.role === 'admin' && (
+            {user.isAdmin && (
               <Link
                 to="/admin"
                 className="text-gray-700 hover:text-gray-900 font-medium"
@@ -76,7 +76,7 @@ function AppContent() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute requiredRole={['admin']}>
+            <ProtectedRoute>
               <AdminPanel />
             </ProtectedRoute>
           }

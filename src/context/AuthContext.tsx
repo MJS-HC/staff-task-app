@@ -38,11 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ...userDoc.data(),
             } as User);
           } else {
-            // User document doesn't exist, create it with default carer role
+            // User document doesn't exist, create it with default eye role
             await setDoc(doc(db, 'users', firebaseUser.uid), {
               username: firebaseUser.email?.split('@')[0] || 'user',
               email: firebaseUser.email || '',
-              role: 'carer',
+              role: 'eye',
+              isAdmin: false,
               createdAt: serverTimestamp(),
             });
 
@@ -51,7 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: firebaseUser.uid,
               username: firebaseUser.email?.split('@')[0] || 'user',
               email: firebaseUser.email || '',
-              role: 'carer',
+              role: 'eye',
+              isAdmin: false,
               createdAt: new Date(),
             } as User);
           }
@@ -79,11 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signup(email: string, password: string, username: string) {
     const authUser = await createUserWithEmailAndPassword(auth, email, password);
-    // Create user document in Firestore with 'carer' role by default
+    // Create user document in Firestore with 'eye' role by default
     await setDoc(doc(db, 'users', authUser.user.uid), {
       username,
       email,
-      role: 'carer',
+      role: 'eye',
+      isAdmin: false,
       createdAt: serverTimestamp(),
     });
   }

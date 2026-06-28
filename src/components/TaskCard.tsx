@@ -37,7 +37,7 @@ export function TaskCard({ task, users = [], onReassign, onTaskClick }: TaskCard
     id: task.id,
   });
 
-  const canReassign = currentUser?.role === 'admin' || currentUser?.role === 'manager';
+  const canReassign = currentUser?.isAdmin || (currentUser && ['nursery-manager', 'deputy-manager'].includes(currentUser.role));
 
   const style = {
     transform: CSS.Transform.toString(transform),
