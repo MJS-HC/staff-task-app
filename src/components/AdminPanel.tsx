@@ -562,6 +562,11 @@ export function AdminPanel() {
                           {r.label}
                         </option>
                       ))}
+                      {dynamicRoles.map((role) => (
+                        <option key={role.id} value={role.id as UserRole}>
+                          {role.name} (Level {role.grade})
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="flex items-center">
@@ -671,6 +676,11 @@ export function AdminPanel() {
                             {ROLES.map((r) => (
                               <option key={r.value} value={r.value}>
                                 {r.label}
+                              </option>
+                            ))}
+                            {dynamicRoles.map((role) => (
+                              <option key={role.id} value={role.id as UserRole}>
+                                {role.name} (Level {role.grade})
                               </option>
                             ))}
                           </select>
