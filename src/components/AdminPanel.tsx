@@ -428,7 +428,7 @@ export function AdminPanel() {
                           </button>
                         </td>
                         <td className="px-6 py-3">
-                          <div className="flex flex-wrap gap-3 justify-end">
+                          <div className="flex flex-wrap gap-2">
                             {editingUserId === u.id ? (
                               <>
                                 <button
