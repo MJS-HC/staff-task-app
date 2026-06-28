@@ -75,6 +75,7 @@ export function AdminPanel() {
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editRoleName, setEditRoleName] = useState('');
   const [editRoleLevel, setEditRoleLevel] = useState<number>(1);
+  const [usersNeedingMigration, setUsersNeedingMigration] = useState<User[]>([]);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
@@ -118,6 +119,10 @@ export function AdminPanel() {
       }));
       setUsers(loadedUsers);
 
+      // Check for users with old hardcoded roles
+      const dynamicRoleIds = new Set(dynamicRoles.map(r => r.id));
+      const needsMigration = loadedUsers.filter(u => !dynamicRoleIds.has(u.role) && ROLES.some(r => r.value === u.role));
+      setUsersNeedingMigration(needsMigration);
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -203,6 +208,19 @@ export function AdminPanel() {
     } catch (error: any) {
       console.error('Failed to delete role:', error);
       alert(`Error deleting role: ${error.message}`);
+    }
+  }
+
+  async function handleMigrateUser(userId: string, oldRole: UserRole) {
+    // Map old hardcoded roles to dynamic role IDs (they should be the same)
+    const newRole = oldRole; // The roleId in Firestore should match the old role name
+    try {
+      await updateDoc(doc(db, 'users', userId), { role: newRole });
+      await loadData();
+      await loadRoles();
+    } catch (error: any) {
+      console.error('Failed to migrate user:', error);
+      alert(`Error migrating user: ${error.message}`);
     }
   }
 
@@ -468,6 +486,33 @@ export function AdminPanel() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-4xl font-bold text-gray-900 mb-8">Administration Panel</h1>
 
+      {/* Migration Notice */}
+      {usersNeedingMigration.length > 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-lg font-semibold text-yellow-800">Role Migration Needed</h3>
+              <p className="text-yellow-700 mt-2">
+                {usersNeedingMigration.length} user(s) are using legacy role names. They need to be migrated to the new dynamic roles.
+              </p>
+              <div className="mt-3 space-y-1">
+                {usersNeedingMigration.map(u => (
+                  <div key={u.id} className="flex justify-between items-center bg-white p-2 rounded text-sm">
+                    <span>{u.username} ({u.role})</span>
+                    <button
+                      onClick={() => handleMigrateUser(u.id, u.role)}
+                      className="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs font-medium"
+                    >
+                      Migrate
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="flex gap-4 mb-8 border-b border-gray-200">
         <button
@@ -547,16 +592,19 @@ export function AdminPanel() {
                       onChange={(e) => setNewRole(e.target.value as UserRole)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      {ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                      {dynamicRoles.map((role) => (
-                        <option key={role.id} value={role.id as UserRole}>
-                          {role.name} (Level {role.grade})
-                        </option>
-                      ))}
+                      {dynamicRoles.length > 0 ? (
+                        dynamicRoles.map((role) => (
+                          <option key={role.id} value={role.id as UserRole}>
+                            {role.name} (Level {role.grade})
+                          </option>
+                        ))
+                      ) : (
+                        ROLES.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                   <div className="flex items-center">
@@ -663,16 +711,19 @@ export function AdminPanel() {
                             className="text-sm border border-gray-300 rounded px-2 py-1"
                             disabled={u.id === currentUser?.id}
                           >
-                            {ROLES.map((r) => (
-                              <option key={r.value} value={r.value}>
-                                {r.label}
-                              </option>
-                            ))}
-                            {dynamicRoles.map((role) => (
-                              <option key={role.id} value={role.id as UserRole}>
-                                {role.name} (Level {role.grade})
-                              </option>
-                            ))}
+                            {dynamicRoles.length > 0 ? (
+                              dynamicRoles.map((role) => (
+                                <option key={role.id} value={role.id as UserRole}>
+                                  {role.name} (Level {role.grade})
+                                </option>
+                              ))
+                            ) : (
+                              ROLES.map((r) => (
+                                <option key={r.value} value={r.value}>
+                                  {r.label}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </td>
                         <td className="px-6 py-3">
