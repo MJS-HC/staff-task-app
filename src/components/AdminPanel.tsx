@@ -10,8 +10,6 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
-  query,
-  where,
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
@@ -135,10 +133,17 @@ export function AdminPanel() {
 
     try {
       const roleId = newRoleName.toLowerCase().replace(/\s+/g, '-');
+      const blankPermissions: Record<PermissionAction, PermissionLevel> = {
+        view: 'none',
+        add: 'none',
+        edit: 'none',
+        prioritise: 'none',
+        move: 'none',
+      };
       const roleData = {
         name: newRoleName,
         level: newRoleLevel,
-        permissions: DEFAULT_PERMISSIONS['eye'] || {},
+        permissions: blankPermissions,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -149,7 +154,6 @@ export function AdminPanel() {
       setNewRoleLevel(1);
       setShowCreateRole(false);
       await loadRoles();
-      alert(`Role "${newRoleName}" created successfully`);
     } catch (error: any) {
       console.error('Failed to create role:', error);
       alert(`Error creating role: ${error.message}`);
@@ -180,9 +184,8 @@ export function AdminPanel() {
         level: editRoleLevel,
         updatedAt: serverTimestamp(),
       });
-      cancelEditingRole();
       await loadRoles();
-      alert('Role updated successfully');
+      cancelEditingRole();
     } catch (error: any) {
       console.error('Failed to update role:', error);
       alert(`Error updating role: ${error.message}`);
@@ -197,7 +200,6 @@ export function AdminPanel() {
     try {
       await deleteDoc(doc(db, 'roles', roleId));
       await loadRoles();
-      alert('Role deleted successfully');
     } catch (error: any) {
       console.error('Failed to delete role:', error);
       alert(`Error deleting role: ${error.message}`);
@@ -442,27 +444,15 @@ export function AdminPanel() {
     return sortDirection === 'asc' ? ' ↑' : ' ↓';
   }
 
-  async function handleSavePermissions(role: UserRole, permissions: Record<PermissionAction, PermissionLevel>) {
+  async function handleSavePermissions(roleId: string, permissions: Record<PermissionAction, PermissionLevel>) {
     try {
-      const roleDoc = await getDocs(query(collection(db, 'roles'), where('name', '==', role)));
-      const roleDefIndex = ROLES.findIndex(r => r.value === role);
-      if (!roleDoc.empty) {
-        await updateDoc(doc(db, 'roles', roleDoc.docs[0].id), {
-          permissions,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await setDoc(doc(db, 'roles', role), {
-          name: role,
-          grade: ROLES[roleDefIndex].grade,
-          permissions,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-      loadData();
+      await updateDoc(doc(db, 'roles', roleId), {
+        permissions,
+        updatedAt: serverTimestamp(),
+      });
     } catch (error) {
       console.error('Failed to save permissions:', error);
+      alert(`Error saving permissions: ${error}`);
     }
   }
 
