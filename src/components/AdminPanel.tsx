@@ -113,19 +113,27 @@ export function AdminPanel() {
 
   async function handleChangeRole(userId: string, newRole: UserRole) {
     try {
+      console.log('Updating user role:', userId, newRole);
       await updateDoc(doc(db, 'users', userId), { role: newRole });
+      console.log('Role updated successfully');
       loadData();
-    } catch (error) {
+      alert(`Role updated to ${newRole}`);
+    } catch (error: any) {
       console.error('Failed to update role:', error);
+      alert(`Error updating role: ${error.message}`);
     }
   }
 
   async function handleToggleAdmin(userId: string, isAdmin: boolean) {
     try {
+      console.log('Toggling admin status:', userId, 'current:', isAdmin, 'new:', !isAdmin);
       await updateDoc(doc(db, 'users', userId), { isAdmin: !isAdmin });
+      console.log('Admin status updated successfully');
       loadData();
-    } catch (error) {
+      alert(`Admin status updated to ${!isAdmin}`);
+    } catch (error: any) {
       console.error('Failed to toggle admin status:', error);
+      alert(`Error updating admin status: ${error.message}`);
     }
   }
 
