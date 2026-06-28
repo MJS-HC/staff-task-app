@@ -13,7 +13,7 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 const ROLES: { value: UserRole; label: string; grade: number }[] = [
   { value: 'eye', label: 'EYE (Early Years Educator)', grade: 1 },
@@ -47,6 +47,9 @@ export function AdminPanel() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('eye');
   const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
@@ -135,6 +138,67 @@ export function AdminPanel() {
       console.error('Failed to toggle admin status:', error);
       alert(`Error updating admin status: ${error.message}`);
     }
+  }
+
+  async function handleUpdateUsername(userId: string, newUsername: string) {
+    if (!newUsername.trim()) {
+      alert('Username cannot be empty');
+      return;
+    }
+
+    try {
+      console.log('Updating username:', userId, newUsername);
+      await updateDoc(doc(db, 'users', userId), { username: newUsername });
+      console.log('Username updated successfully');
+      setEditingUserId(null);
+      loadData();
+      alert('Username updated successfully');
+    } catch (error: any) {
+      console.error('Failed to update username:', error);
+      alert(`Error updating username: ${error.message}`);
+    }
+  }
+
+  async function handleUpdateEmail(userId: string, newEmail: string) {
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      console.log('Updating email:', userId, newEmail);
+      await updateDoc(doc(db, 'users', userId), { email: newEmail });
+      console.log('Email updated successfully');
+      setEditingUserId(null);
+      loadData();
+      alert('Email updated successfully in Firestore. User should update their email in Firebase Auth settings.');
+    } catch (error: any) {
+      console.error('Failed to update email:', error);
+      alert(`Error updating email: ${error.message}`);
+    }
+  }
+
+  async function handleResetPassword(userEmail: string) {
+    try {
+      console.log('Sending password reset email to:', userEmail);
+      await sendPasswordResetEmail(auth, userEmail);
+      alert(`Password reset email sent to ${userEmail}. User will receive instructions to reset their password.`);
+    } catch (error: any) {
+      console.error('Failed to send password reset email:', error);
+      alert(`Error sending password reset email: ${error.message}`);
+    }
+  }
+
+  function startEditingUser(user: User) {
+    setEditingUserId(user.id);
+    setEditUsername(user.username);
+    setEditEmail(user.email);
+  }
+
+  function cancelEditing() {
+    setEditingUserId(null);
+    setEditUsername('');
+    setEditEmail('');
   }
 
   async function handleSavePermissions(role: UserRole, permissions: Record<PermissionAction, PermissionLevel>) {
@@ -309,47 +373,106 @@ export function AdminPanel() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {users.map((u) => (
-                    <tr key={u.id}>
-                      <td className="px-6 py-3 text-sm text-gray-900">{u.username}</td>
-                      <td className="px-6 py-3 text-sm text-gray-600">{u.email}</td>
-                      <td className="px-6 py-3">
-                        <select
-                          value={u.role}
-                          onChange={(e) => handleChangeRole(u.id, e.target.value as UserRole)}
-                          className="text-sm border border-gray-300 rounded px-2 py-1"
-                          disabled={u.id === currentUser?.id}
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r.value} value={r.value}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-3">
-                        <button
-                          onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
-                          disabled={u.id === currentUser?.id}
-                          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                            u.isAdmin
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                          } ${u.id === currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {u.isAdmin ? 'Yes' : 'No'}
-                        </button>
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        {u.id !== currentUser?.id && (
-                          <button
-                            onClick={() => handleDeleteUser(u.id)}
-                            className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
+                    <React.Fragment key={u.id}>
+                      <tr>
+                        <td className="px-6 py-3 text-sm text-gray-900">
+                          {editingUserId === u.id ? (
+                            <input
+                              type="text"
+                              value={editUsername}
+                              onChange={(e) => setEditUsername(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              autoFocus
+                            />
+                          ) : (
+                            u.username
+                          )}
+                        </td>
+                        <td className="px-6 py-3 text-sm text-gray-600">
+                          {editingUserId === u.id ? (
+                            <input
+                              type="email"
+                              value={editEmail}
+                              onChange={(e) => setEditEmail(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                            />
+                          ) : (
+                            u.email
+                          )}
+                        </td>
+                        <td className="px-6 py-3">
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleChangeRole(u.id, e.target.value as UserRole)}
+                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                            disabled={u.id === currentUser?.id}
                           >
-                            Delete
+                            {ROLES.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-6 py-3">
+                          <button
+                            onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
+                            disabled={u.id === currentUser?.id}
+                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              u.isAdmin
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                            } ${u.id === currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            {u.isAdmin ? 'Yes' : 'No'}
                           </button>
-                        )}
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-6 py-3 text-right space-x-2">
+                          {editingUserId === u.id ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleUpdateUsername(u.id, editUsername);
+                                  handleUpdateEmail(u.id, editEmail);
+                                }}
+                                className="text-green-600 hover:text-green-700 text-sm font-medium transition-colors"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                className="text-gray-600 hover:text-gray-700 text-sm font-medium transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => startEditingUser(u)}
+                                className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleResetPassword(u.email)}
+                                className="text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+                              >
+                                Reset Password
+                              </button>
+                              {u.id !== currentUser?.id && (
+                                <button
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
