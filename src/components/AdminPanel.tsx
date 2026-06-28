@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { User, PermissionAction, PermissionLevel, UserRole } from '../types';
+import type { User, PermissionAction, PermissionLevel, UserRole, RoleDefinition } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../config/firebase';
 import {
@@ -70,10 +70,37 @@ export function AdminPanel() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, Record<PermissionAction, PermissionLevel>>>(DEFAULT_PERMISSIONS);
   const [unsavedRoles, setUnsavedRoles] = useState<Set<UserRole>>(new Set());
+  const [dynamicRoles, setDynamicRoles] = useState<RoleDefinition[]>([]);
+  const [showCreateRole, setShowCreateRole] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleLevel, setNewRoleLevel] = useState<number>(1);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    // Load roles from Firestore on component mount
+    async function loadRoles() {
+      try {
+        const rolesSnapshot = await getDocs(collection(db, 'roles'));
+        const loadedRoles = rolesSnapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            name: doc.data().name,
+            grade: doc.data().level || 0,
+            permissions: doc.data().permissions || {},
+            createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+            updatedAt: doc.data().updatedAt?.toDate?.() || new Date(),
+          }))
+          .sort((a, b) => a.grade - b.grade);
+        setDynamicRoles(loadedRoles);
+      } catch (error) {
+        console.error('Failed to load roles:', error);
+      }
+    }
+    loadRoles();
   }, []);
 
   async function loadData() {
@@ -94,6 +121,36 @@ export function AdminPanel() {
       console.error('Failed to load data:', error);
     }
     setLoading(false);
+  }
+
+  async function handleCreateRole(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newRoleName.trim()) {
+      alert('Role name cannot be empty');
+      return;
+    }
+
+    try {
+      const roleId = newRoleName.toLowerCase().replace(/\s+/g, '-');
+      const roleData = {
+        name: newRoleName,
+        level: newRoleLevel,
+        permissions: DEFAULT_PERMISSIONS['eye'] || {},
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, 'roles', roleId), roleData);
+
+      setNewRoleName('');
+      setNewRoleLevel(1);
+      setShowCreateRole(false);
+      loadData();
+      alert(`Role "${newRoleName}" created successfully`);
+    } catch (error: any) {
+      console.error('Failed to create role:', error);
+      alert(`Error creating role: ${error.message}`);
+    }
   }
 
   async function handleAddUser(e: React.FormEvent) {
@@ -636,32 +693,98 @@ export function AdminPanel() {
       {/* Role & Permission Management Tab */}
       {activeTab === 'roles' && (
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-8">Role & Permission Management</h2>
-          <div className="space-y-8">
-            {ROLES.map((roleInfo) => (
-              <RolePermissionMatrix
-                key={roleInfo.value}
-                role={roleInfo.value}
-                roleLabel={roleInfo.label}
-                permissions={rolePermissions[roleInfo.value]}
-                isUnsaved={unsavedRoles.has(roleInfo.value)}
-                onPermissionChange={(action, level) => {
-                  setRolePermissions({
-                    ...rolePermissions,
-                    [roleInfo.value]: {
-                      ...rolePermissions[roleInfo.value],
-                      [action]: level,
-                    },
-                  });
-                  setUnsavedRoles(new Set([...unsavedRoles, roleInfo.value]));
-                }}
-                onSave={() => {
-                  handleSavePermissions(roleInfo.value, rolePermissions[roleInfo.value]);
-                  setUnsavedRoles(new Set([...unsavedRoles].filter(r => r !== roleInfo.value)));
-                }}
-              />
-            ))}
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900">Role & Permission Management</h2>
+            <button
+              onClick={() => setShowCreateRole(!showCreateRole)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {showCreateRole ? 'Cancel' : '+ Create Role'}
+            </button>
           </div>
+
+          {showCreateRole && (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <h3 className="text-xl font-bold mb-4 text-gray-900">Create New Role</h3>
+              <form onSubmit={handleCreateRole} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Role Name</label>
+                    <input
+                      type="text"
+                      value={newRoleName}
+                      onChange={(e) => setNewRoleName(e.target.value)}
+                      placeholder="e.g., Deputy Office Manager"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Level (1=Most Junior)</label>
+                    <input
+                      type="number"
+                      value={newRoleLevel}
+                      onChange={(e) => setNewRoleLevel(parseInt(e.target.value) || 1)}
+                      min="1"
+                      max="10"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateRole(false)}
+                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Create Role
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {dynamicRoles.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Loading roles...</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {dynamicRoles.map((roleInfo) => {
+                const roleId = roleInfo.id as UserRole;
+                return (
+                  <RolePermissionMatrix
+                    key={roleInfo.id}
+                    role={roleId}
+                    roleLabel={`${roleInfo.name} (Level ${roleInfo.grade})`}
+                    permissions={rolePermissions[roleId] || roleInfo.permissions}
+                    isUnsaved={unsavedRoles.has(roleId)}
+                    onPermissionChange={(action, level) => {
+                      setRolePermissions({
+                        ...rolePermissions,
+                        [roleId]: {
+                          ...rolePermissions[roleId],
+                          [action]: level,
+                        },
+                      });
+                      setUnsavedRoles(new Set([...unsavedRoles, roleId]));
+                    }}
+                    onSave={() => {
+                      handleSavePermissions(roleId, rolePermissions[roleId]);
+                      setUnsavedRoles(new Set([...unsavedRoles].filter(r => r !== roleId)));
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
