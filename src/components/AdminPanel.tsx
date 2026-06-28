@@ -50,6 +50,8 @@ export function AdminPanel() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUsername, setEditUsername] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [sortColumn, setSortColumn] = useState<'username' | 'email' | 'role' | 'admin'>('username');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
@@ -199,6 +201,59 @@ export function AdminPanel() {
     setEditingUserId(null);
     setEditUsername('');
     setEditEmail('');
+  }
+
+  function handleColumnSort(column: 'username' | 'email' | 'role' | 'admin') {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  }
+
+  function getSortedUsers() {
+    const sorted = [...users].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      if (sortColumn === 'username') {
+        aValue = a.username.toLowerCase();
+        bValue = b.username.toLowerCase();
+      } else if (sortColumn === 'email') {
+        aValue = a.email.toLowerCase();
+        bValue = b.email.toLowerCase();
+      } else if (sortColumn === 'role') {
+        const roleGrades: Record<UserRole, number> = {
+          'eye': 1,
+          'office-manager': 2,
+          'senior-staff': 3,
+          'deputy-manager': 4,
+          'nursery-manager': 5,
+          'admin': 5,
+          'manager': 4,
+          'carer': 1,
+        };
+        aValue = roleGrades[a.role] || 0;
+        bValue = roleGrades[b.role] || 0;
+      } else if (sortColumn === 'admin') {
+        aValue = a.isAdmin ? 1 : 0;
+        bValue = b.isAdmin ? 1 : 0;
+      }
+
+      if (sortDirection === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+    return sorted;
+  }
+
+  function renderSortIndicator(column: 'username' | 'email' | 'role' | 'admin') {
+    if (sortColumn !== column) return ' ↕️';
+    return sortDirection === 'asc' ? ' ↑' : ' ↓';
   }
 
   async function handleSavePermissions(role: UserRole, permissions: Record<PermissionAction, PermissionLevel>) {
@@ -364,15 +419,35 @@ export function AdminPanel() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Username</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Role</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Admin</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Actions</th>
+                    <th
+                      onClick={() => handleColumnSort('username')}
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      Username{renderSortIndicator('username')}
+                    </th>
+                    <th
+                      onClick={() => handleColumnSort('email')}
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      Email{renderSortIndicator('email')}
+                    </th>
+                    <th
+                      onClick={() => handleColumnSort('role')}
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      Role{renderSortIndicator('role')}
+                    </th>
+                    <th
+                      onClick={() => handleColumnSort('admin')}
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      Admin{renderSortIndicator('admin')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {users.map((u) => (
+                  {getSortedUsers().map((u) => (
                     <React.Fragment key={u.id}>
                       <tr>
                         <td className="px-6 py-3 text-sm text-gray-900">
