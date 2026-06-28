@@ -74,32 +74,35 @@ export function AdminPanel() {
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleLevel, setNewRoleLevel] = useState<number>(1);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editRoleName, setEditRoleName] = useState('');
+  const [editRoleLevel, setEditRoleLevel] = useState<number>(1);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    // Load roles from Firestore on component mount
-    async function loadRoles() {
-      try {
-        const rolesSnapshot = await getDocs(collection(db, 'roles'));
-        const loadedRoles = rolesSnapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            name: doc.data().name,
-            grade: doc.data().level || 0,
-            permissions: doc.data().permissions || {},
-            createdAt: doc.data().createdAt?.toDate?.() || new Date(),
-            updatedAt: doc.data().updatedAt?.toDate?.() || new Date(),
-          }))
-          .sort((a, b) => a.grade - b.grade);
-        setDynamicRoles(loadedRoles);
-      } catch (error) {
-        console.error('Failed to load roles:', error);
-      }
+  async function loadRoles() {
+    try {
+      const rolesSnapshot = await getDocs(collection(db, 'roles'));
+      const loadedRoles = rolesSnapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          name: doc.data().name,
+          grade: doc.data().level || 0,
+          permissions: doc.data().permissions || {},
+          createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+          updatedAt: doc.data().updatedAt?.toDate?.() || new Date(),
+        }))
+        .sort((a, b) => a.grade - b.grade);
+      setDynamicRoles(loadedRoles);
+    } catch (error) {
+      console.error('Failed to load roles:', error);
     }
+  }
+
+  useEffect(() => {
     loadRoles();
   }, []);
 
@@ -145,11 +148,59 @@ export function AdminPanel() {
       setNewRoleName('');
       setNewRoleLevel(1);
       setShowCreateRole(false);
-      loadData();
+      await loadRoles();
       alert(`Role "${newRoleName}" created successfully`);
     } catch (error: any) {
       console.error('Failed to create role:', error);
       alert(`Error creating role: ${error.message}`);
+    }
+  }
+
+  function startEditingRole(role: RoleDefinition) {
+    setEditingRoleId(role.id);
+    setEditRoleName(role.name);
+    setEditRoleLevel(role.grade);
+  }
+
+  function cancelEditingRole() {
+    setEditingRoleId(null);
+    setEditRoleName('');
+    setEditRoleLevel(1);
+  }
+
+  async function handleSaveRoleEdit(roleId: string) {
+    if (!editRoleName.trim()) {
+      alert('Role name cannot be empty');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'roles', roleId), {
+        name: editRoleName,
+        level: editRoleLevel,
+        updatedAt: serverTimestamp(),
+      });
+      cancelEditingRole();
+      await loadRoles();
+      alert('Role updated successfully');
+    } catch (error: any) {
+      console.error('Failed to update role:', error);
+      alert(`Error updating role: ${error.message}`);
+    }
+  }
+
+  async function handleDeleteRole(roleId: string) {
+    if (!window.confirm('Are you sure you want to delete this role? Users assigned to this role may be affected.')) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'roles', roleId));
+      await loadRoles();
+      alert('Role deleted successfully');
+    } catch (error: any) {
+      console.error('Failed to delete role:', error);
+      alert(`Error deleting role: ${error.message}`);
     }
   }
 
@@ -759,28 +810,86 @@ export function AdminPanel() {
             <div className="space-y-8">
               {dynamicRoles.map((roleInfo) => {
                 const roleId = roleInfo.id as UserRole;
+                const isEditing = editingRoleId === roleInfo.id;
                 return (
-                  <RolePermissionMatrix
-                    key={roleInfo.id}
-                    role={roleId}
-                    roleLabel={`${roleInfo.name} (Level ${roleInfo.grade})`}
-                    permissions={rolePermissions[roleId] || roleInfo.permissions}
-                    isUnsaved={unsavedRoles.has(roleId)}
-                    onPermissionChange={(action, level) => {
-                      setRolePermissions({
-                        ...rolePermissions,
-                        [roleId]: {
-                          ...rolePermissions[roleId],
-                          [action]: level,
-                        },
-                      });
-                      setUnsavedRoles(new Set([...unsavedRoles, roleId]));
-                    }}
-                    onSave={() => {
-                      handleSavePermissions(roleId, rolePermissions[roleId]);
-                      setUnsavedRoles(new Set([...unsavedRoles].filter(r => r !== roleId)));
-                    }}
-                  />
+                  <div key={roleInfo.id} className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      {isEditing ? (
+                        <div className="flex-1 flex gap-4 items-center">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={editRoleName}
+                              onChange={(e) => setEditRoleName(e.target.value)}
+                              placeholder="Role name"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              value={editRoleLevel}
+                              onChange={(e) => setEditRoleLevel(parseInt(e.target.value) || 1)}
+                              min="1"
+                              max="10"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleSaveRoleEdit(roleInfo.id)}
+                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEditingRole}
+                            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="text-lg font-bold text-gray-900">{roleInfo.name} (Level {roleInfo.grade})</h3>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => startEditingRole(roleInfo)}
+                              className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRole(roleInfo.id)}
+                              className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <RolePermissionMatrix
+                      role={roleId}
+                      roleLabel={`${roleInfo.name} (Level ${roleInfo.grade})`}
+                      permissions={rolePermissions[roleId] || roleInfo.permissions}
+                      isUnsaved={unsavedRoles.has(roleId)}
+                      onPermissionChange={(action, level) => {
+                        setRolePermissions({
+                          ...rolePermissions,
+                          [roleId]: {
+                            ...rolePermissions[roleId],
+                            [action]: level,
+                          },
+                        });
+                        setUnsavedRoles(new Set([...unsavedRoles, roleId]));
+                      }}
+                      onSave={() => {
+                        handleSavePermissions(roleId, rolePermissions[roleId]);
+                        setUnsavedRoles(new Set([...unsavedRoles].filter(r => r !== roleId)));
+                      }}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -793,27 +902,26 @@ export function AdminPanel() {
 
 interface RolePermissionMatrixProps {
   role: UserRole;
-  roleLabel: string;
+  roleLabel?: string;
   permissions: Record<PermissionAction, PermissionLevel>;
   isUnsaved: boolean;
   onPermissionChange: (action: PermissionAction, level: PermissionLevel) => void;
   onSave: () => void;
 }
 
-function RolePermissionMatrix({ role, roleLabel, permissions, isUnsaved, onPermissionChange, onSave }: RolePermissionMatrixProps) {
+function RolePermissionMatrix({ role, permissions, isUnsaved, onPermissionChange, onSave }: RolePermissionMatrixProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold text-gray-900">{roleLabel}</h3>
-        {isUnsaved && (
+    <div>
+      {isUnsaved && (
+        <div className="mb-4 flex justify-end">
           <button
             onClick={onSave}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
           >
-            Save Changes
+            Save Permission Changes
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
