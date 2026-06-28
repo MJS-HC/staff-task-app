@@ -142,41 +142,49 @@ export function AdminPanel() {
     }
   }
 
-  async function handleUpdateUsername(userId: string, newUsername: string) {
+  async function handleUpdateUsername(userId: string, newUsername: string, silent = false) {
     if (!newUsername.trim()) {
-      alert('Username cannot be empty');
-      return;
+      if (!silent) alert('Username cannot be empty');
+      return false;
     }
 
     try {
       console.log('Updating username:', userId, newUsername);
       await updateDoc(doc(db, 'users', userId), { username: newUsername });
       console.log('Username updated successfully');
-      setEditingUserId(null);
-      loadData();
-      alert('Username updated successfully');
+      if (!silent) {
+        setEditingUserId(null);
+        loadData();
+        alert('Username updated successfully');
+      }
+      return true;
     } catch (error: any) {
       console.error('Failed to update username:', error);
-      alert(`Error updating username: ${error.message}`);
+      if (!silent) alert(`Error updating username: ${error.message}`);
+      return false;
     }
   }
 
-  async function handleUpdateEmail(userId: string, newEmail: string) {
+  async function handleUpdateEmail(userId: string, newEmail: string, silent = false) {
     if (!newEmail.trim() || !newEmail.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
+      if (!silent) alert('Please enter a valid email address');
+      return false;
     }
 
     try {
       console.log('Updating email:', userId, newEmail);
       await updateDoc(doc(db, 'users', userId), { email: newEmail });
       console.log('Email updated successfully');
-      setEditingUserId(null);
-      loadData();
-      alert('Email updated successfully in Firestore. User should update their email in Firebase Auth settings.');
+      if (!silent) {
+        setEditingUserId(null);
+        loadData();
+        alert('Email updated successfully in Firestore. User should update their email in Firebase Auth settings.');
+      }
+      return true;
     } catch (error: any) {
       console.error('Failed to update email:', error);
-      alert(`Error updating email: ${error.message}`);
+      if (!silent) alert(`Error updating email: ${error.message}`);
+      return false;
     }
   }
 
@@ -201,6 +209,46 @@ export function AdminPanel() {
     setEditingUserId(null);
     setEditUsername('');
     setEditEmail('');
+  }
+
+  async function handleSaveUserChanges(user: User) {
+    const usernameChanged = editUsername !== user.username;
+    const emailChanged = editEmail !== user.email;
+
+    if (!usernameChanged && !emailChanged) {
+      alert('No changes to save');
+      setEditingUserId(null);
+      return;
+    }
+
+    try {
+      const results = [];
+      if (usernameChanged) {
+        const result = await handleUpdateUsername(user.id, editUsername, true);
+        results.push({ field: 'Username', success: result });
+      }
+      if (emailChanged) {
+        const result = await handleUpdateEmail(user.id, editEmail, true);
+        results.push({ field: 'Email', success: result });
+      }
+
+      // Build success message based on what was updated
+      const successMessages = results.filter(r => r.success).map(r => r.field);
+      if (successMessages.length > 0) {
+        const message = successMessages.join(' and ') + ' updated successfully';
+        if (emailChanged) {
+          alert(message + '. User should update their email in Firebase Auth settings if email was changed.');
+        } else {
+          alert(message);
+        }
+      }
+
+      setEditingUserId(null);
+      loadData();
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      alert('Error saving changes');
+    }
   }
 
   function handleColumnSort(column: 'username' | 'email' | 'role' | 'admin') {
@@ -507,10 +555,7 @@ export function AdminPanel() {
                             {editingUserId === u.id ? (
                               <>
                                 <button
-                                  onClick={() => {
-                                    handleUpdateUsername(u.id, editUsername);
-                                    handleUpdateEmail(u.id, editEmail);
-                                  }}
+                                  onClick={() => handleSaveUserChanges(u)}
                                   className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm font-medium transition-colors"
                                 >
                                   Save
